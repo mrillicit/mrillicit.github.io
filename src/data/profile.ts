@@ -54,11 +54,11 @@ export const displayName = "Varshit Modi Jain";
 
 /** One line. What you research. Keep it concrete. */
 export const tagline =
-  "Security guy. I click things in the wrong order until something gives.";
+  "Security guy. No speciality, which turned out to be the speciality.";
 
 /** Two sentences under the tagline on the home page. Optional. */
 export const intro =
-  "Dubai, breaking applications since 2023 — logins, access control, and the business logic everyone assumed nobody would read.";
+  "Dubai, since 2023. Whatever application lands in front of me — web, APIs, and the internal tools nobody wants to own.";
 
 /** Path under /public for the avatar, or "" to show initials instead. */
 export const avatar = "";
