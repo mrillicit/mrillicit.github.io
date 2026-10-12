@@ -7,13 +7,11 @@ export default defineAstroPaperConfig({
     // Shown as the wordmark in the header.
     title: "mrillicit",
     description:
-      "Security research — vulnerability writeups, notes and tools.",
-    // TODO: your real name. Used for meta tags and the footer.
-    author: "mrillicit",
-    profile: "https://github.com/mrillicit",
+      "Offensive security consultant. Vulnerability research, writeups and notes.",
+    author: "Varshit Modi Jain",
+    profile: "https://www.linkedin.com/in/varshitmodi/",
     lang: "en",
-    // TODO: set your IANA timezone, e.g. "Asia/Kolkata".
-    timezone: "UTC",
+    timezone: "Asia/Dubai",
     dir: "ltr",
   },
   posts: {
@@ -33,11 +31,10 @@ export default defineAstroPaperConfig({
     search: false,
   },
   socials: [
-    // TODO: replace the placeholder URLs. Delete any you do not use.
-    { name: "linkedin", url: "https://www.linkedin.com/in/YOUR-HANDLE/" },
-    { name: "x", url: "https://x.com/YOUR-HANDLE" },
+    { name: "linkedin", url: "https://www.linkedin.com/in/varshitmodi/" },
+    { name: "x", url: "https://x.com/varshitmodi" },
     { name: "github", url: "https://github.com/mrillicit" },
-    { name: "mail", url: "mailto:YOU@EXAMPLE.COM" },
+    // { name: "mail", url: "mailto:you@domain" },
   ],
   shareLinks: [],
 });
