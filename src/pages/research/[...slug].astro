@@ -1,0 +1,119 @@
+---
+import { type CollectionEntry, getCollection, render } from "astro:content";
+import { getRelativeLocaleUrl } from "astro:i18n";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import SeverityBadge from "@/components/SeverityBadge.astro";
+import IconArrowLeft from "@/assets/icons/IconArrowLeft.svg";
+import { getResearchSlug } from "@/utils/getResearchPaths";
+import { getSortedResearch } from "@/utils/getSortedResearch";
+import { toTransitionName } from "@/utils/toTransitionName";
+import config from "@/config";
+
+export async function getStaticPaths() {
+  const entries = await getCollection("research");
+  return getSortedResearch(entries).map(entry => ({
+    params: { slug: getResearchSlug(entry.id, entry.filePath) },
+    props: entry,
+  }));
+}
+
+type Props = CollectionEntry<"research">;
+
+const entry = Astro.props as Props;
+const {
+  title,
+  description,
+  severity,
+  target,
+  pubDatetime,
+  modDatetime,
+  links,
+} = entry.data;
+
+const { Content } = await render(entry);
+const locale = Astro.currentLocale ?? config.site.lang;
+
+const fmt = (d: Date) =>
+  new Intl.DateTimeFormat(config.site.lang, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: entry.data.timezone ?? config.site.timezone,
+  }).format(new Date(d));
+
+const linkRow = [
+  links?.advisory && { label: "Advisory", url: links.advisory },
+  links?.cve && { label: "CVE", url: links.cve },
+  links?.poc && { label: "PoC", url: links.poc },
+  links?.repo && { label: "Repository", url: links.repo },
+].filter(Boolean) as { label: string; url: string }[];
+---
+
+<Layout
+  title={`${title} | ${config.site.title}`}
+  description={description}
+  ogImage={entry.data.ogImage as string | undefined}
+  canonicalURL={entry.data.canonicalURL}
+>
+  <Header />
+  <main id="main-content" class="app-layout pb-8">
+    <a
+      href={getRelativeLocaleUrl(locale, "research")}
+      class="text-muted-foreground hover:text-accent mt-6 inline-flex items-center gap-1 text-sm"
+    >
+      <IconArrowLeft class="inline-block size-4 rtl:-rotate-180" />
+      All research
+    </a>
+
+    <div class="mt-7 mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+      <SeverityBadge severity={severity} />
+      <span class="text-muted-foreground/50" aria-hidden="true">/</span>
+      <span class="text-muted-foreground text-xs">{target}</span>
+      <span class="text-muted-foreground/50" aria-hidden="true">/</span>
+      <time
+        class="text-muted-foreground text-xs"
+        datetime={pubDatetime.toISOString()}
+      >
+        {fmt(pubDatetime)}
+      </time>
+      {
+        modDatetime && (
+          <span class="text-muted-foreground text-xs">
+            (updated {fmt(modDatetime)})
+          </span>
+        )
+      }
+    </div>
+
+    <h1
+      transition:name={toTransitionName(entry.id)}
+      class="text-2xl font-bold tracking-tight sm:text-3xl"
+    >
+      {title}
+    </h1>
+
+    <p class="text-muted-foreground mt-3 leading-relaxed">{description}</p>
+
+    {
+      linkRow.length > 0 && (
+        <div class="border-border mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t pt-4 text-sm">
+          {linkRow.map(link => (
+            <a
+              href={link.url}
+              class="text-sev-note decoration-dashed underline-offset-4 hover:underline"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      )
+    }
+
+    <article class="app-prose mt-8">
+      <Content />
+    </article>
+  </main>
+  <Footer />
+</Layout>
