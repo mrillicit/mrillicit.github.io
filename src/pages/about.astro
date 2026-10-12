@@ -1,0 +1,168 @@
+---
+import { getEntry, render } from "astro:content";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import {
+  displayName,
+  tagline,
+  avatar,
+  disclosureNote,
+  shortBio,
+  certifications,
+  profileLinks,
+} from "@/data/profile";
+import config from "@/config";
+
+const about = await getEntry("pages", "about");
+
+if (!about) {
+  throw new Error(
+    "Missing content entry: `about.md` or `about.mdx` in `src/content/pages/`"
+  );
+}
+
+const { Content } = await render(about);
+
+const icons = import.meta.glob<{
+  default: (_props: Record<string, unknown>) => unknown;
+}>("/src/assets/icons/socials/*.svg");
+
+const links = await Promise.all(
+  profileLinks.map(async link => {
+    const mod = await icons[`/src/assets/icons/socials/${link.icon}.svg`]?.();
+    return { ...link, Icon: mod?.default };
+  })
+);
+
+const initials = displayName
+  .split(" ")
+  .map(part => part[0])
+  .join("")
+  .slice(0, 2)
+  .toUpperCase();
+---
+
+<Layout
+  title={`${about.data.title} | ${config.site.title}`}
+  description={about.data.description}
+  ogImage={about.data.ogImage}
+  canonicalURL={about.data.canonicalURL}
+>
+  <Header />
+
+  <main id="main-content" class="app-layout pb-8">
+    <section class="flex flex-col gap-6 pt-9 pb-8 sm:flex-row sm:gap-7">
+      {
+        avatar ? (
+          <img
+            src={avatar}
+            alt={displayName}
+            width="84"
+            height="84"
+            class="border-border size-21 shrink-0 rounded-full border object-cover"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            class="border-border bg-muted text-muted-foreground flex size-21 shrink-0 items-center justify-center rounded-full border text-lg font-semibold"
+          >
+            {initials}
+          </div>
+        )
+      }
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">
+          {about.data.title}
+        </h1>
+        <p class="text-muted-foreground mt-3 text-sm leading-relaxed">
+          {tagline}
+        </p>
+      </div>
+    </section>
+
+    <div class="app-prose">
+      <Content />
+    </div>
+
+    {
+      disclosureNote && (
+        <p class="border-border text-muted-foreground mt-7 border-s-2 ps-4 text-sm leading-relaxed">
+          {disclosureNote}
+        </p>
+      )
+    }
+
+    {
+      shortBio && (
+        <section class="mt-10">
+          <h2 class="text-muted-foreground mb-4 text-[0.69rem] tracking-[0.15em]">
+            SHORT BIO — THIRD PERSON
+          </h2>
+          <div class="border-border bg-muted/40 rounded-md border p-5">
+            <p class="text-sm leading-relaxed">{shortBio}</p>
+          </div>
+        </section>
+      )
+    }
+
+    {
+      certifications.length > 0 && (
+        <section class="mt-10">
+          <h2 class="text-muted-foreground mb-4 text-[0.69rem] tracking-[0.15em]">
+            CERTIFICATIONS
+          </h2>
+          <ul class="flex list-none flex-wrap gap-2.5 p-0">
+            {certifications.map(cert => (
+              <li class="border-border inline-flex items-baseline gap-2.5 rounded-md border px-3.5 py-2">
+                {cert.url ? (
+                  <a
+                    href={cert.url}
+                    class="text-sm font-semibold decoration-dashed underline-offset-4 hover:underline"
+                  >
+                    {cert.name}
+                  </a>
+                ) : (
+                  <span class="text-sm font-semibold">{cert.name}</span>
+                )}
+                <span class="text-muted-foreground text-xs">{cert.year}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+
+    {
+      links.length > 0 && (
+        <section class="mt-10">
+          <h2 class="text-muted-foreground mb-4 text-[0.69rem] tracking-[0.15em]">
+            ELSEWHERE
+          </h2>
+          <ul class="grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2">
+            {links.map(({ label, handle, url, Icon }) => (
+              <li>
+                <a
+                  href={url}
+                  class="border-border hover:border-accent flex items-center gap-3 rounded-md border p-3.5 transition-colors"
+                >
+                  {Icon && (
+                    <Icon class="text-muted-foreground size-5 shrink-0 fill-transparent stroke-current stroke-2" />
+                  )}
+                  <span>
+                    <span class="block text-sm font-semibold">{label}</span>
+                    <span class="text-muted-foreground block text-xs">
+                      {handle}
+                    </span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+  </main>
+
+  <Footer />
+</Layout>

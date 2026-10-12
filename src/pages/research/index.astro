@@ -1,0 +1,196 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "@/layouts/Layout.astro";
+import Header from "@/components/Header.astro";
+import Footer from "@/components/Footer.astro";
+import Main from "@/components/Main.astro";
+import ResearchCard from "@/components/ResearchCard.astro";
+import { getSortedResearch } from "@/utils/getSortedResearch";
+import { themes, tools, talks, recognition } from "@/data/profile";
+import config from "@/config";
+
+const entries = await getCollection("research");
+const sorted = getSortedResearch(entries);
+
+// Group by theme. A theme with no entries is not rendered at all.
+const grouped = themes
+  .map(theme => ({
+    theme,
+    entries: sorted.filter(({ data }) => data.theme === theme.id),
+  }))
+  .filter(group => group.entries.length > 0);
+
+const themeIds = new Set(themes.map(t => t.id));
+const ungrouped = sorted.filter(
+  ({ data }) => !data.theme || !themeIds.has(data.theme)
+);
+
+const hasAnything =
+  sorted.length > 0 ||
+  tools.length > 0 ||
+  talks.length > 0 ||
+  recognition.length > 0;
+---
+
+<Layout
+  title={`Research | ${config.site.title}`}
+  description="Vulnerability research, writeups, notes and tools."
+>
+  <Header />
+  <Main pageTitle="Research">
+    {
+      !hasAnything && (
+        <p class="text-muted-foreground text-sm leading-relaxed">
+          Nothing published yet. Entries added to{" "}
+          <code class="text-foreground">src/content/research/</code> appear
+          here, grouped by theme.
+        </p>
+      )
+    }
+
+    {
+      grouped.map(({ theme, entries: themeEntries }) => (
+        <section class="mb-11">
+          <div class="border-accent mb-6 border-s-2 ps-4">
+            <h2 class="text-xl font-bold tracking-tight">{theme.name}</h2>
+            <p class="text-muted-foreground mt-1 text-sm leading-relaxed">
+              {theme.description}
+            </p>
+          </div>
+          <div class="ps-4.5">
+            {themeEntries.map(entry => (
+              <ResearchCard variant="h3" {...entry} />
+            ))}
+          </div>
+        </section>
+      ))
+    }
+
+    {
+      ungrouped.length > 0 && (
+        <section class="mb-11">
+          {grouped.length > 0 && (
+            <div class="border-border mb-6 border-s-2 ps-4">
+              <h2 class="text-xl font-bold tracking-tight">Other</h2>
+            </div>
+          )}
+          <div class:list={[grouped.length > 0 && "ps-4.5"]}>
+            {ungrouped.map(entry => (
+              <ResearchCard variant="h3" {...entry} />
+            ))}
+          </div>
+        </section>
+      )
+    }
+
+    {
+      tools.length > 0 && (
+        <section class="border-border mt-10 border-t pt-8 pb-3">
+          <h2 class="text-muted-foreground mb-5 text-[0.69rem] tracking-[0.15em]">
+            TOOLS
+          </h2>
+          {tools.map(tool => (
+            <div class="mb-5">
+              <div class="flex flex-wrap items-baseline gap-x-3">
+                <a
+                  href={tool.url}
+                  class="text-accent text-[0.95rem] font-semibold decoration-dashed underline-offset-4 hover:underline"
+                >
+                  {tool.name}
+                </a>
+                {tool.language && (
+                  <span class="text-muted-foreground text-xs">
+                    {tool.language}
+                  </span>
+                )}
+              </div>
+              <p class="text-muted-foreground mt-1 text-sm leading-relaxed">
+                {tool.description}
+              </p>
+            </div>
+          ))}
+        </section>
+      )
+    }
+
+    {
+      talks.length > 0 && (
+        <section class="pt-6 pb-3">
+          <h2 class="text-muted-foreground mb-5 text-[0.69rem] tracking-[0.15em]">
+            TALKS
+          </h2>
+          {talks.map(talk => (
+            <div class="border-border flex gap-5 border-b py-3">
+              <div class="text-muted-foreground w-14 shrink-0 text-xs">
+                {talk.year}
+              </div>
+              <div>
+                <div class="text-sm font-semibold">
+                  {talk.url ? (
+                    <a
+                      href={talk.url}
+                      class="decoration-dashed underline-offset-4 hover:underline"
+                    >
+                      {talk.title}
+                    </a>
+                  ) : (
+                    talk.title
+                  )}
+                </div>
+                <div class="text-muted-foreground mt-0.5 text-xs">
+                  {talk.venue}
+                  {talk.slides && (
+                    <>
+                      {" · "}
+                      <a
+                        href={talk.slides}
+                        class="text-sev-note hover:underline"
+                      >
+                        slides
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )
+    }
+
+    {
+      recognition.length > 0 && (
+        <section class="pt-6 pb-4">
+          <h2 class="text-muted-foreground mb-5 text-[0.69rem] tracking-[0.15em]">
+            RECOGNITION
+          </h2>
+          {recognition.map(item => (
+            <div class="border-border flex gap-5 border-b py-3">
+              <div class="text-muted-foreground w-14 shrink-0 text-xs">
+                {item.year}
+              </div>
+              <div>
+                <div class="text-sm font-semibold">
+                  {item.url ? (
+                    <a
+                      href={item.url}
+                      class="decoration-dashed underline-offset-4 hover:underline"
+                    >
+                      {item.title}
+                    </a>
+                  ) : (
+                    item.title
+                  )}
+                </div>
+                <div class="text-muted-foreground mt-0.5 text-xs">
+                  {item.org}
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )
+    }
+  </Main>
+  <Footer />
+</Layout>

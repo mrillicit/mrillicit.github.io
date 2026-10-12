@@ -1,0 +1,49 @@
+---
+import type { CollectionEntry } from "astro:content";
+import { getResearchUrl } from "@/utils/getResearchPaths";
+import { toTransitionName } from "@/utils/toTransitionName";
+import SeverityBadge from "./SeverityBadge.astro";
+import config from "@/config";
+
+type Props = {
+  variant?: "h2" | "h3";
+} & CollectionEntry<"research">;
+
+const { variant: Heading = "h2", id, data, filePath } = Astro.props;
+const { title, description, severity, target, pubDatetime } = data;
+
+const date = new Intl.DateTimeFormat(config.site.lang, {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  timeZone: data.timezone ?? config.site.timezone,
+}).format(new Date(pubDatetime));
+---
+
+<article class="mb-8">
+  <div class="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+    <SeverityBadge severity={severity} />
+    <span class="text-muted-foreground/50" aria-hidden="true">/</span>
+    <span class="text-muted-foreground text-xs">{target}</span>
+    <span class="text-muted-foreground/50" aria-hidden="true">/</span>
+    <time
+      class="text-muted-foreground text-xs"
+      datetime={pubDatetime.toISOString()}
+    >
+      {date}
+    </time>
+  </div>
+  <a
+    href={getResearchUrl(id, filePath, Astro.currentLocale)}
+    class:list={[
+      "inline-block text-lg font-semibold",
+      "hover:text-accent decoration-dashed underline-offset-4 hover:underline",
+      "focus-visible:no-underline focus-visible:underline-offset-0",
+    ]}
+  >
+    <Heading transition:name={toTransitionName(id)}>{title}</Heading>
+  </a>
+  <p class="text-muted-foreground mt-1.5 text-sm leading-relaxed">
+    {description}
+  </p>
+</article>

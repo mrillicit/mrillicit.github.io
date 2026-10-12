@@ -1,0 +1,35 @@
+---
+import type { SEVERITIES } from "@/content.config";
+
+type Props = {
+  severity: (typeof SEVERITIES)[number];
+};
+
+const { severity } = Astro.props;
+
+const labels: Record<Props["severity"], string> = {
+  critical: "CRITICAL",
+  high: "HIGH",
+  medium: "MEDIUM",
+  low: "LOW",
+  note: "RESEARCH",
+};
+
+// Full class strings so Tailwind keeps them in the build.
+const colors: Record<Props["severity"], string> = {
+  critical: "text-sev-critical",
+  high: "text-sev-high",
+  medium: "text-sev-medium",
+  low: "text-sev-low",
+  note: "text-sev-note",
+};
+---
+
+<span
+  class:list={[
+    "text-[0.69rem] font-semibold tracking-[0.1em]",
+    colors[severity],
+  ]}
+>
+  {labels[severity]}
+</span>
