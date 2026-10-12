@@ -53,11 +53,12 @@ export type ProfileLink = {
 export const displayName = "Varshit Modi Jain";
 
 /** One line. What you research. Keep it concrete. */
-export const tagline = "Security guy. I break applications and write about it.";
+export const tagline =
+  "Security guy. I click things in the wrong order until something gives.";
 
 /** Two sentences under the tagline on the home page. Optional. */
 export const intro =
-  "Based in Dubai, doing this since 2023. Mostly applications — logins, access control, and whatever else looks like it was never really thought through.";
+  "Dubai, breaking applications since 2023 — logins, access control, and the business logic everyone assumed nobody would read.";
 
 /** Path under /public for the avatar, or "" to show initials instead. */
 export const avatar = "";

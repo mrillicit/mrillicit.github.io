@@ -2,34 +2,52 @@
 import Layout from "@/layouts/Layout.astro";
 import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
-import LinkButton from "@/components/LinkButton.astro";
 import { getRelativeLocaleUrl } from "astro:i18n";
-import { useTranslations } from "@/i18n";
 import config from "@/config";
 
 const locale = Astro.currentLocale ?? config.site.lang;
-const t = useTranslations(locale);
 ---
 
-<Layout title={`${t.notFound.title} | ${config.site.title}`}>
+<Layout title={`404 | ${config.site.title}`}>
   <Header />
 
   <main
     id="main-content"
-    class="app-layout my-1 flex flex-1 items-center justify-center"
+    class="app-layout flex flex-1 flex-col justify-center py-16"
   >
-    <div class="mb-14 flex flex-col items-center justify-center">
-      <h1 class="text-accent text-9xl font-bold">404</h1>
-      <span aria-hidden="true"> ¯\_(ツ)_/¯ </span>
-      <p class="mt-4 text-2xl sm:text-3xl">{t.notFound.message}</p>
-      <LinkButton
+    <h1 class="text-accent text-7xl font-bold tracking-tight sm:text-8xl">
+      404
+    </h1>
+
+    <pre
+      class="border-border text-muted-foreground mt-7 overflow-x-auto rounded-md border p-4 text-xs leading-relaxed sm:text-sm"><code><span class="text-accent">$</span> GET <span id="attempted-path" class="text-foreground">/that-one</span>
+
+HTTP/1.1 404 Not Found
+x-reason: out of scope</code></pre>
+
+    <div class="mt-7 flex flex-wrap gap-x-7 gap-y-2 text-sm">
+      <a
         href={getRelativeLocaleUrl(locale, "")}
-        class="my-6 text-lg underline decoration-dashed underline-offset-8"
+        class="hover:text-accent decoration-dashed underline-offset-4 hover:underline"
       >
-        {t.notFound.goHome}
-      </LinkButton>
+        <span class="text-accent" aria-hidden="true">$</span> cd /
+      </a>
+      <a
+        href={getRelativeLocaleUrl(locale, "research")}
+        class="hover:text-accent decoration-dashed underline-offset-4 hover:underline"
+      >
+        <span class="text-accent" aria-hidden="true">$</span> ls /research
+      </a>
     </div>
   </main>
 
   <Footer />
 </Layout>
+
+<script>
+  // Static hosts serve this file for any missing path, so fill it in client-side.
+  document.addEventListener("astro:page-load", () => {
+    const el = document.getElementById("attempted-path");
+    if (el) el.textContent = window.location.pathname;
+  });
+</script>
