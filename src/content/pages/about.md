@@ -1,21 +1,18 @@
 ---
 title: "About"
-description: "Offensive security consultant. Vulnerability research, writeups and notes."
+description: "Offensive security consultant at Network International, Dubai."
 ---
 
-I'm **Varshit Modi Jain**, an offensive security consultant based in the UAE.
-Four years of engagements have convinced me that the interesting bugs are rarely
-the ones a scanner can name. They live in the gap between what a system was
-designed to do and what it will actually do when you ask it strangely — a
-parameter nobody expected you to control, a check that runs after the thing it
-was meant to prevent, an assumption that held right up until it didn't.
+I'm **Varshit Modi Jain**, an offensive security consultant at
+[Network International](https://www.network.ae/) in Dubai. I've worked in
+security since 2023, testing applications end to end — authentication and
+access control, APIs, business logic, and the integrations that get bolted on
+after launch.
 
-Most of that work is web application security: access control, authentication
-flows, and the quiet places where trust gets assumed instead of verified.
-Increasingly it extends to AI systems, which are interesting for the same
-reason — we are handing agents real privileges against real infrastructure, and
-the question of who authorised what gets harder to answer with every hop.
+Lately I've been following what happens to authorisation when AI agents are
+given real privileges: who approved an action, and whether that is still
+answerable three hops into a chain of tools.
 
-[One or two lines from outside security — what you self-host, what you build for
-fun, the thing you will argue about at length. Optional, but it is what makes a
-bio read like a person instead of a profile.]
+This site is where my research gets published.
+
+<small>Views here are my own and not my employer's.</small>

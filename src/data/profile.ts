@@ -54,11 +54,11 @@ export const displayName = "Varshit Modi Jain";
 
 /** One line. What you research. Keep it concrete. */
 export const tagline =
-  "Offensive security consultant. I break web applications, and lately the AI agents being wired into them.";
+  "Offensive security consultant. I break applications and write about it.";
 
 /** Two sentences under the tagline on the home page. Optional. */
 export const intro =
-  "Four years of engagements, mostly spent on access control, authentication flows, and the places where trust is assumed rather than checked. This is where the work that can be published ends up.";
+  "Application security at Network International in Dubai, in the field since 2023. Most of my time goes to authentication, access control, and the business logic holding applications together.";
 
 /** Path under /public for the avatar, or "" to show initials instead. */
 export const avatar = "";
@@ -67,15 +67,13 @@ export const avatar = "";
  * Shown under the bio on /about. Set to "" to hide it.
  * Worth keeping: it is a short, unambiguous statement of posture.
  */
-export const disclosureNote =
-  "Everything published here was found under an authorised programme and disclosed to the vendor before publication.";
+export const disclosureNote = "";
 
 /**
  * Written in the third person so event organisers and press can lift it
  * unedited. Roughly 50 words. Set to "" to hide the block.
  */
-export const shortBio =
-  "Varshit Modi Jain is an offensive security consultant based in the UAE, with four years of experience testing web applications and the infrastructure behind them. His current research covers authentication and access control, and the security of AI agents operating with real privileges against real systems.";
+export const shortBio = "";
 
 /** Research groups on /research. A theme with no entries is not rendered. */
 export const themes: Theme[] = [
