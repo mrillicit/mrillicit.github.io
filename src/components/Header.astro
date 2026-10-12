@@ -51,7 +51,7 @@ const isActive = (path: string) => {
       href={getRelativeLocaleUrl(locale, "")}
       class="absolute py-1 text-xl leading-8 font-semibold whitespace-nowrap sm:static sm:my-auto sm:text-2xl sm:leading-none"
     >
-      {site.title}
+      <span class="text-accent" aria-hidden="true">~/</span>{site.title}
     </a>
     <nav
       id="nav-menu"
