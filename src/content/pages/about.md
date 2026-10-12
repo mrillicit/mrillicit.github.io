@@ -1,18 +1,13 @@
 ---
 title: "About"
-description: "Offensive security consultant at Network International, Dubai."
+description: "Security guy in Dubai. Breaking applications and writing about it."
 ---
 
-I'm **Varshit Modi Jain**, an offensive security consultant at
-[Network International](https://www.network.ae/) in Dubai. I've worked in
-security since 2023, testing applications end to end — authentication and
-access control, APIs, business logic, and the integrations that get bolted on
-after launch.
+I'm Varshit — a security guy in Dubai. Been doing this since 2023, mostly
+breaking applications: logins, access control, APIs, and the parts that got
+bolted on later and never looked at again.
 
-Lately I've been following what happens to authorisation when AI agents are
-given real privileges: who approved an action, and whether that is still
-answerable three hops into a chain of tools.
+Lately I've been poking at AI agents, and what happens to permissions once a
+task gets handed down a chain of them.
 
-This site is where my research gets published.
-
-<small>Views here are my own and not my employer's.</small>
+This is where the research lands.

@@ -6,8 +6,7 @@ export default defineAstroPaperConfig({
     url: "https://mrillicit.github.io/",
     // Shown as the wordmark in the header.
     title: "mrillicit",
-    description:
-      "Offensive security consultant. Vulnerability research, writeups and notes.",
+    description: "Security guy in Dubai. Breaking applications and writing about it.",
     author: "Varshit Modi Jain",
     profile: "https://www.linkedin.com/in/varshitmodi/",
     lang: "en",
