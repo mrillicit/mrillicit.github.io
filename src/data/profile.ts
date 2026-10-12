@@ -50,13 +50,17 @@ export type ProfileLink = {
   icon: "linkedin" | "x" | "github" | "mail";
 };
 
-/** TODO: your name, as it should appear under the photo. */
-export const displayName = "Your Name";
+export const displayName = "Varshit Modi Jain";
 
 /** One line. What you research. Keep it concrete. */
-export const tagline = "Security researcher.";
+export const tagline =
+  "Offensive security consultant. I break web applications and write up what I find.";
 
-/** Two sentences under the tagline on the home page. Optional. */
+/**
+ * Two sentences under the tagline on the home page. Optional.
+ * TODO: your own words — four years of consulting, what you specialise in,
+ * what you are working toward.
+ */
 export const intro = "";
 
 /** Path under /public for the avatar, or "" to show initials instead. */
@@ -109,14 +113,14 @@ export const certifications: Certification[] = [];
 export const profileLinks: ProfileLink[] = [
   {
     label: "LinkedIn",
-    handle: "/in/YOUR-HANDLE",
-    url: "https://www.linkedin.com/in/YOUR-HANDLE/",
+    handle: "/in/varshitmodi",
+    url: "https://www.linkedin.com/in/varshitmodi/",
     icon: "linkedin",
   },
   {
     label: "X",
-    handle: "@YOUR-HANDLE",
-    url: "https://x.com/YOUR-HANDLE",
+    handle: "@varshitmodi",
+    url: "https://x.com/varshitmodi",
     icon: "x",
   },
   {
@@ -125,10 +129,6 @@ export const profileLinks: ProfileLink[] = [
     url: "https://github.com/mrillicit",
     icon: "github",
   },
-  {
-    label: "Email",
-    handle: "YOU@EXAMPLE.COM",
-    url: "mailto:YOU@EXAMPLE.COM",
-    icon: "mail",
-  },
+  // To publish an email address, add:
+  // { label: "Email", handle: "you@domain", url: "mailto:you@domain", icon: "mail" },
 ];
