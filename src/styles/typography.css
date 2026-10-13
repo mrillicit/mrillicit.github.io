@@ -5,6 +5,10 @@
   .app-prose {
     @apply prose;
 
+    /* Tailwind's prose default is 16px/1.75 and caps at 65ch. The reference
+       sites run larger and looser, and the page already constrains width. */
+    @apply max-w-none text-[1.0625rem] leading-[1.7];
+
     h1,
     h2,
     h3,

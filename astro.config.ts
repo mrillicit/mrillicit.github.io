@@ -59,13 +59,24 @@ export default defineConfig({
     plugins: [tailwindcss()],
   },
   fonts: [
+    // Prose. Monospace is unreadable for body copy at length.
     {
-      name: "Google Sans Code",
-      cssVariable: "--font-google-sans-code",
+      name: "IBM Plex Sans",
+      cssVariable: "--font-sans",
       provider: fontProviders.google(),
-      fallbacks: ["monospace"],
-      weights: [300, 400, 500, 600, 700],
+      fallbacks: ["system-ui", "sans-serif"],
+      weights: [400, 500, 600, 700],
       styles: ["normal", "italic"],
+      formats: ["woff", "ttf"],
+    },
+    // Chrome: wordmark, nav, labels, badges, dates, code.
+    {
+      name: "JetBrains Mono",
+      cssVariable: "--font-mono-face",
+      provider: fontProviders.google(),
+      fallbacks: ["ui-monospace", "monospace"],
+      weights: [400, 500, 600, 700],
+      styles: ["normal"],
       formats: ["woff", "ttf"],
     },
   ],

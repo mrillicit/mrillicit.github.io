@@ -70,10 +70,10 @@ const linkRow = [
     <div class="mt-7 mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
       <SeverityBadge severity={severity} />
       <span class="text-muted-foreground/50" aria-hidden="true">/</span>
-      <span class="text-muted-foreground text-xs">{target}</span>
+      <span class="text-muted-foreground font-mono text-xs">{target}</span>
       <span class="text-muted-foreground/50" aria-hidden="true">/</span>
       <time
-        class="text-muted-foreground text-xs"
+        class="text-muted-foreground font-mono text-xs"
         datetime={pubDatetime.toISOString()}
       >
         {fmt(pubDatetime)}
