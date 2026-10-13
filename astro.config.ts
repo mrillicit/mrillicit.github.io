@@ -62,7 +62,7 @@ export default defineConfig({
     // Prose. Monospace is unreadable for body copy at length.
     {
       name: "IBM Plex Sans",
-      cssVariable: "--font-sans",
+      cssVariable: "--font-prose",
       provider: fontProviders.google(),
       fallbacks: ["system-ui", "sans-serif"],
       weights: [400, 500, 600, 700],
