@@ -38,25 +38,33 @@ const initials = displayName
     id="main-content"
     data-layout="index"
     data-home-path={homePath}
-    class="app-layout my-1"
+    class:list={[
+      "app-layout flex flex-1 flex-col",
+      // With nothing published, centre the hero instead of stranding it
+      // above a screen of empty space.
+      selected.length === 0 && "justify-center",
+    ]}
   >
     <section
       id="hero"
-      class="flex flex-col gap-6 pt-10 pb-10 sm:flex-row sm:gap-7"
+      class:list={[
+        "flex flex-col gap-7 sm:flex-row sm:gap-8",
+        selected.length === 0 ? "py-16" : "pt-12 pb-10",
+      ]}
     >
       {
         avatar ? (
           <img
             src={avatar}
             alt={displayName}
-            width="92"
-            height="92"
-            class="border-border size-23 shrink-0 rounded-full border object-cover"
+            width="112"
+            height="112"
+            class="border-border size-24 shrink-0 rounded-full border object-cover sm:size-28"
           />
         ) : (
           <div
             aria-hidden="true"
-            class="border-border bg-muted text-muted-foreground flex size-23 shrink-0 items-center justify-center rounded-full border text-xl font-semibold"
+            class="border-border bg-muted text-muted-foreground flex size-24 shrink-0 items-center justify-center rounded-full border font-mono text-2xl font-semibold sm:size-28"
           >
             {initials}
           </div>
@@ -66,10 +74,10 @@ const initials = displayName
         <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">
           {displayName}
         </h1>
-        <p class="mt-3 text-base leading-relaxed">{tagline}</p>
+        <p class="mt-3.5 text-lg leading-relaxed sm:text-xl">{tagline}</p>
         {
           intro && (
-            <p class="text-muted-foreground mt-3 text-sm leading-relaxed">
+            <p class="text-muted-foreground mt-3.5 text-base leading-relaxed">
               {intro}
             </p>
           )

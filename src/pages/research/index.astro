@@ -40,11 +40,15 @@ const hasAnything =
   <Main pageTitle="Research">
     {
       !hasAnything && (
-        <p class="text-muted-foreground text-sm leading-relaxed">
-          Nothing published yet. Entries added to{" "}
-          <code class="text-foreground">src/content/research/</code> appear
-          here, grouped by theme.
-        </p>
+        <div class="border-border mt-4 rounded-md border border-dashed px-6 py-12 text-center">
+          <p class="text-muted-foreground font-mono text-xs tracking-[0.12em]">
+            NOTHING PUBLISHED YET
+          </p>
+          <p class="text-muted-foreground mx-auto mt-3 max-w-sm text-sm leading-relaxed">
+            Writeups go up once a finding has cleared disclosure. Until then
+            there is nothing here worth reading.
+          </p>
+        </div>
       )
     }
 
