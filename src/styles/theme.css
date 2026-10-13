@@ -7,7 +7,7 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
-  --font-app: var(--font-sans);
+  --font-app: var(--font-prose);
   --font-mono: var(--font-mono-face);
 
   /* Severity badge colours, tuned for contrast on both grounds */
