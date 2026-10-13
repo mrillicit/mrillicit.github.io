@@ -31,3 +31,12 @@ public/pagefind
 
 # docker compose
 compose.override.yaml
+
+# local dev scratch (schema reference, notes)
+dev/
+
+# editor settings
+.vscode/
+
+# agent / tooling config
+.claude/
