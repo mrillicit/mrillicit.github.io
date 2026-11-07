@@ -20,6 +20,10 @@ const grouped = themes
   }))
   .filter(group => group.entries.length > 0);
 
+// A single group is not a grouping, so the headings only earn their place
+// once there is more than one.
+const showGroupHeadings = grouped.length > 1;
+
 const themeIds = new Set(themes.map(t => t.id));
 const ungrouped = sorted.filter(
   ({ data }) => !data.theme || !themeIds.has(data.theme)
@@ -55,13 +59,15 @@ const hasAnything =
     {
       grouped.map(({ theme, entries: themeEntries }) => (
         <section class="mb-11">
-          <div class="border-accent mb-6 border-s-2 ps-4">
-            <h2 class="text-xl font-bold tracking-tight">{theme.name}</h2>
-            <p class="text-muted-foreground mt-1 text-sm leading-relaxed">
-              {theme.description}
-            </p>
-          </div>
-          <div class="ps-4.5">
+          {showGroupHeadings && (
+            <div class="border-accent mb-6 border-s-2 ps-4">
+              <h2 class="text-xl font-bold tracking-tight">{theme.name}</h2>
+              <p class="text-muted-foreground mt-1 text-sm leading-relaxed">
+                {theme.description}
+              </p>
+            </div>
+          )}
+          <div class:list={[showGroupHeadings && "ps-4.5"]}>
             {themeEntries.map(entry => (
               <ResearchCard variant="h3" {...entry} />
             ))}
@@ -73,12 +79,12 @@ const hasAnything =
     {
       ungrouped.length > 0 && (
         <section class="mb-11">
-          {grouped.length > 0 && (
+          {showGroupHeadings && (
             <div class="border-border mb-6 border-s-2 ps-4">
               <h2 class="text-xl font-bold tracking-tight">Other</h2>
             </div>
           )}
-          <div class:list={[grouped.length > 0 && "ps-4.5"]}>
+          <div class:list={[showGroupHeadings && "ps-4.5"]}>
             {ungrouped.map(entry => (
               <ResearchCard variant="h3" {...entry} />
             ))}
