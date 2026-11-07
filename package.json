@@ -28,7 +28,7 @@
     "rehype-callouts": "^2.2.0",
     "remark-collapse": "^0.1.2",
     "remark-toc": "^9.0.0",
-    "satori": "^0.26.0",
+    "satori": "^0.33.5",
     "sharp": "^0.35.5",
     "slugify": "^1.6.9",
     "tailwindcss": "^4.3.3"
@@ -47,5 +47,14 @@
     "prettier-plugin-astro": "0.14.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "typescript": "^6.0.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "undici": ">=8.12.2",
+      "fast-uri": ">=3.1.9",
+      "minimatch": ">=11.0.1",
+      "postcss-selector-parser": ">=6.1.5",
+      "fflate": ">=0.7.5"
+    }
   }
 }
