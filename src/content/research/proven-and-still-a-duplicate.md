@@ -2,7 +2,7 @@
 title: "Nobody installs librsvg, and everybody runs it"
 description: "Four dependencies below your Next.js app sits an SVG parser driving C code from 1999. Everyone locks the obvious route to it. There is a second one, and it is the feature that makes your link previews."
 pubDatetime: 2026-11-03T06:00:00Z
-severity: "high"
+severity: "critical"
 target: "librsvg via Next.js next/og"
 theme: "web"
 tags: ["collisions", "native", "upstream", "methodology"]

@@ -57,7 +57,7 @@ export const tagline = "Security guy. Illicit in name only.";
 
 /** Two sentences under the tagline on the home page. Optional. */
 export const intro =
-  "Based in Dubai, taking whatever application turns up and whatever it runs on.";
+  "Dubai. Most of what I find lives below the code anyone chose to install.";
 
 /** Path under /public for the avatar, or "" to show initials instead. */
 export const avatar = "";
