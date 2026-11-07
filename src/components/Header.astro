@@ -59,7 +59,7 @@ const isActive = (path: string) => {
     >
       <button
         id="menu-btn"
-        class="focus-outline self-end p-2 sm:hidden"
+        class="focus-outline flex size-11 items-center justify-center self-end sm:hidden"
         aria-label={t.a11y.openMenu}
         aria-expanded="false"
         aria-controls="menu-items"
@@ -112,7 +112,12 @@ const isActive = (path: string) => {
         }
         {
           features.lightAndDarkMode && (
-            <li class="col-span-1 flex items-center justify-center">
+            <li
+              class:list={[
+                "flex items-center justify-center",
+                features.search === false ? "col-span-2" : "col-span-1",
+              ]}
+            >
               <button
                 id="theme-btn"
                 class="focus-outline hover:[&>svg]:stroke-accent relative size-12 p-4 sm:size-8"
