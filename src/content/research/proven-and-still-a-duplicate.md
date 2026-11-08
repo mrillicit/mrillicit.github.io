@@ -174,10 +174,17 @@ SVG there is refused unless the developer turns on `dangerouslyAllowSVG`, which
 is off by default, and the libvips loaders are cut down to a short allowlist.
 That is real hardening, and it is why I stopped spending time on it.
 
-It is not a sealed door, and I should be careful not to say that it is. Vercel's
-October security update names the Image Optimization API specifically, and there
-is public work on content-type detection paths through it. My point is narrower:
-it is the defended road, so it is the expensive place to dig.
+It is not a sealed door, and it would be wrong to write it up as one. On
+2026-11-03, after everything below had already happened, Vercel published
+[GHSA-7qx7-33qx-rqx2](https://github.com/vercel/next.js/security/advisories/GHSA-7qx7-33qx-rqx2):
+an image from a permitted source can be misclassified as AVIF, slip past
+`dangerouslyAllowSVG: false`, and still get decoded as SVG. The setting you
+trusted to keep SVG out did not keep SVG out. Self-hosted deployments, fixed in
+15.5.29 and 16.4.5.
+
+So the defended road had a hole in it too. My point was only ever the narrower
+one: a door somebody has visibly reinforced is the expensive place to spend your
+week, so I went looking for a door nobody had thought about.
 
 ## 5. The observation that moved it
 
@@ -260,10 +267,29 @@ first, so a failure to render could not be mistaken for a failure to exploit.
 | 16.3.6 | 0.35.5 | 2.63.2 | PNG 200, no marker, server healthy |
 | 16.3.8 | 0.35.5 | 2.63.2 | PNG 200, no marker, server healthy |
 
-Node v24.20.0 x64 throughout, verified against the official checksum, in
-offline containers. Rows four and five use the same built application as rows
-two and three with only the native packages swapped, so the only variable in
-the comparison is librsvg.
+Node v24.20.0 x64 throughout, the official Linux archive checked against the
+published SHA-256, on Debian bookworm with glibc, in containers with no network
+and a read-only filesystem apart from one evidence directory. Rows four and five
+use the same built application as rows two and three with only the native
+packages swapped, so the only variable down the column is librsvg.
+
+### Telling a crash apart from execution
+
+This part is worth stating, because a native parser falling over looks a lot
+like a native parser being driven, and it is the easiest way to fool yourself.
+
+Three things had to line up before I counted a row as execution. Every cell
+first rendered a harmless red square and had the centre pixel checked for
+`[255,0,0,255]`, so a cell that simply could not render was visible as a broken
+cell rather than a quiet one. The marker file had to appear, and it is a file
+the application has no code to create, so nothing but the payload could have
+written it. And the connection had to close with no response, which is what a
+successful `execve` looks like from outside: the process that owed you a reply
+has been replaced by the thing you asked for.
+
+A crash gives you the closed connection and nothing else. It is the marker that
+separates the two, and it is why the payload writes a file instead of doing
+anything more interesting.
 
 ### What has to be true, stated separately
 
@@ -282,18 +308,31 @@ result needs all of:
 Drop any one of those and what remains is a crash risk rather than a demonstrated
 command.
 
-## 8. Why Node and not Edge
+## 8. Edge is not this bug behind a sandbox
 
-The same pipeline on the Edge runtime renders with `resvg` compiled to
-WebAssembly. WASM is a sandbox with linear memory and no syscalls, so corrupting
-it gets you the sandbox.
+I said earlier that `next/og` on Node hands its SVG to Sharp. On the Edge
+runtime it does not. Edge renders with `resvg`, a completely separate SVG
+implementation written in Rust and compiled to WebAssembly.
 
-On Node, Sharp is a native addon inside the server process. No boundary. Code
-execution there holds the filesystem, the environment variables and the network
-position of your application.
+That matters more than it first sounds, and I had it wrong in my head at the
+start. Edge is not the same bug behind a sandbox. **`resvg` is not librsvg, so
+it does not have this bug at all.** Different codebase, different entity
+handling, nothing to free twice. A payload built for the librsvg use-after-free
+is meaningless there. It is not contained, it is irrelevant.
 
-Same bug, same payload. The runtime decides whether it is a curiosity or a
-server.
+Two separate properties get credited to Edge and they are worth keeping apart.
+The first is that it runs different code, which is why this particular CVE does
+not apply. The second is that WebAssembly is a sandbox with linear memory and no
+syscalls, so even a genuine memory bug in `resvg` would have to escape that
+before it reached a shell. On Node there is no second property to fall back on:
+Sharp is a native addon inside the server process, and execution there holds the
+filesystem, the environment variables and the network position of your
+application.
+
+The lesson is not "use Edge and you are safe". It is that two runtimes of the
+same feature can be two different attack surfaces, and a finding against one
+says nothing about the other until you check which library each actually
+loads.
 
 ## 9. Duplicate, then the advisory
 
@@ -305,6 +344,14 @@ server.
   critical, patched in 15.5.28 and 16.4.1.
 
 Thirteen days between being told it was known and watching it go public.
+
+Those two facts fit together more comfortably than they first look. A duplicate
+decision is about the root cause, not about your route to it. I had a different
+delivery path, on builds past the fix that was supposed to close this, and that
+is a real and separate fact about reachability. It is still the same underlying
+defect in the same library, so from the program's side there is one thing to
+track and one thing to fix. Finding a second door into a room somebody has
+already reported does not give you a second room.
 
 The remedy there is a Sharp version bump rather than a change to Next.js code,
 which is section 1 restated: the memory-safety defect was upstream, and what the
