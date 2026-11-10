@@ -120,7 +120,7 @@ at install time.
 
 ## 2. The picture before the detail
 
-Before any of the parser internals, here is the road the bytes travel in the
+Before any of the parser internals, here is the path the bytes travel in the
 app I tested:
 
 ```
@@ -138,7 +138,8 @@ app I tested:
   copying that data: URI through
         |
   = = = = = = = = = = = = = = = =
-  trust boundary ends here
+  trust boundary crossed here
+  untrusted SVG enters native code
         |
         v
   [ Sharp -> libvips -> librsvg ]
@@ -169,10 +170,17 @@ expand text were left on.
 
 **XInclude** pastes another document inline, and nests.
 
-Now the collision. The outer document defines an entity and starts expanding
-it. A nested include brings in a document defining an entity **with the same
-name**. librsvg frees the first one to make room. The expansion that is still
-running carries on using the memory that was just freed.
+Now the collision, in order.
+
+libxml2 is expanding an entity in the outer document. Part way through, a nested
+XInclude causes a second document to be parsed. That document declares an entity
+**with the same name**, and librsvg replaces the existing entry in the entity map
+the two share. The replacement frees an object the outer parse is still holding.
+When the outer parse resumes, it reads memory that has already been released.
+
+Triggering the invalid read is not the same as controlling it. An attacker also
+has to influence what gets allocated into the freed space, which is the part
+that depends on the allocator and on the payload being built for it.
 
 That is
 [CVE-2026-96889](https://rustsec.org/advisories/RUSTSEC-2026-0305.html).
@@ -207,7 +215,7 @@ else is building. The second is a **memory corruption** bug in the code that
 later parses that document. Patching the first does not touch the second. That
 distinction is the whole story below.
 
-## 4. The first road was the wrong one
+## 4. The optimizer was the wrong place to look
 
 `/_next/image`, the image optimizer, is where everyone goes first. I did too.
 
@@ -215,17 +223,19 @@ SVG there is refused unless the developer turns on `dangerouslyAllowSVG`, which
 is off by default, and the libvips loaders are cut down to a short allowlist.
 That is real hardening, and it is why I stopped spending time on it.
 
-It is not a sealed door, and it would be wrong to write it up as one. On
-2026-11-03, after everything below had already happened, Vercel published
+That restriction is a default, not a guarantee, and it would be wrong to write
+it up as one. On 2026-11-03, after everything below had already happened, Vercel published
 [GHSA-7qx7-33qx-rqx2](https://github.com/vercel/next.js/security/advisories/GHSA-7qx7-33qx-rqx2):
 an image from a permitted source can be misclassified as AVIF, slip past
 `dangerouslyAllowSVG: false`, and still get decoded as SVG. The setting you
 trusted to keep SVG out did not keep SVG out. Self-hosted deployments, fixed in
 15.5.29 and 16.4.5.
 
-So the defended road had a hole in it too. My point was only ever the narrower
-one: a door somebody has visibly reinforced is the expensive place to spend your
-week, so I went looking for a door nobody had thought about.
+So the defended path had a bypass in it too. My point was only ever the
+narrower one. A surface that has been deliberately hardened, and is therefore
+the surface everyone else is also testing, is an expensive place to spend a
+week. The question I took to `next/og` was simply whether a second
+application-facing rendering path could reach the same library.
 
 ## 5. The observation that moved it
 
@@ -239,11 +249,16 @@ document in pure JavaScript. It runs layout, converts text to outlines, emits
 shapes. No browser. On the Node runtime, that SVG then goes to Sharp, and down
 the chain from section 1.
 
-The two pipelines differ in one belief about their input. The optimizer treats
-input as hostile, because it fetches from the internet. `next/og` treats the SVG
-as its own, because Satori generated it microseconds earlier.
+The two pipelines differ in one assumption about their input. The optimizer
+treats what it receives as hostile, because it fetches from the internet.
+`next/og` treats the SVG it renders as its own, because Satori generated it
+microseconds earlier. That assumption holds for the structure Satori emits. It
+does not hold for the contents of an image the application asked Satori to
+embed.
 
-So one road has a lock, and the other has nothing anybody thought to lock.
+One pipeline validates its input because it was written to expect hostile
+input. The other does not, because nothing in its design anticipated input it
+did not generate.
 
 ## 6. Satori embeds images, and an image can be a document
 
@@ -299,9 +314,11 @@ export async function POST(req: Request) {
 "Let users upload their own share card" is an ordinary feature request. That is
 the chain.
 
-And it explains why the serializer fix does not help. A fix for CVE-2026-94545
-escapes text that gets written into the generated SVG. My SVG was never text
-being written in. It was already a finished document before Satori saw it.
+And it explains why the serializer fix does not help here. The fix for
+CVE-2026-94545 escapes text and attribute values as Satori writes them into the
+SVG it builds. The document in this case was never written in that way. It
+arrived complete, as an image data URI, and was copied across whole. It does not
+bypass the serializer fix. It never reaches the code that fix changed.
 
 ## 7. Six bytes
 
@@ -318,11 +335,9 @@ image, on builds **past** that fix. Not because the hardening failed. It was
 aimed at a different input mechanism, and a document that is copied rather than
 serialized never passes through the code it hardened.
 
-One POST. The connection closes with no response, which is what you would
-expect if the worker had been replaced mid-request, though I should be careful
-here: I have the marker and the dead connection, not process-level evidence
-that the replacement was specifically an `execve`
-replaces the running process, so no worker survives to answer. Then:
+One POST. The connection closes with no response. That on its own proves
+nothing, because a parser falling over looks the same from outside. The marker
+is the evidence:
 
 ```console
 $ cat /tmp/next-og-rce-proof
@@ -352,21 +367,28 @@ that changed, and I cannot claim a single-variable experiment.
 
 ### Telling a crash apart from execution
 
-This part is worth stating, because a native parser falling over looks a lot
-like a native parser being driven, and it is the easiest way to fool yourself.
+Mistaking a crash for execution is the easiest way to fool yourself here, so
+three observations had to line up before I counted a row. They are worth taking
+one at a time rather than running together.
 
-Three things had to line up before I counted a row as execution. Every cell
-first rendered a harmless red square and had the centre pixel checked for
-`[255,0,0,255]`, so a cell that simply could not render was visible as a broken
-cell rather than a quiet one. The marker file had to appear, and it is a file
-the application has no code to create, so nothing but the payload could have
-written it. And the connection had to close with no response, which is what a
-a replaced process looks like from outside: nothing is left that owes you a
-reply.
+**The pipeline had to be working.** Every cell first rendered a harmless red
+square, and the centre pixel was checked for `[255,0,0,255]`. A configuration
+that could not render at all would otherwise look like a configuration that
+rendered and was not exploitable.
 
-A crash gives you the closed connection and nothing else. It is the marker that
-separates the two, and it is why the payload writes a file instead of doing
-anything more interesting.
+**The marker had to appear.** `/tmp/next-og-rce-proof` did not exist before the
+request and contained `PROVEN` after it. The route has no code that writes
+files. Nothing in the application could have created it, so the command carried
+in the SVG ran.
+
+**The connection had to close with no response.** This is the weakest of the
+three and I want to be clear about what it is worth. It is consistent with the
+worker being terminated or replaced. It does not identify the mechanism, and I
+did not capture process-level evidence of one.
+
+So the marker carries the claim, not the dead socket. A crash gives you the
+closed connection and nothing else. That is the whole reason the payload writes
+a file rather than doing anything more interesting.
 
 ### What has to be true, stated separately
 
@@ -432,9 +454,9 @@ resolved takes the `else` and renders with `resvg` like Edge does. The optional
 dependency decides the attack surface.
 
 And Edge is **not this bug behind a sandbox**. `resvg` is a separate SVG
-implementation in Rust, not librsvg. Different codebase, different entity
-handling, nothing to free twice. A payload built for the librsvg use-after-free
-is not contained there, it is irrelevant there.
+implementation in Rust. It does not use librsvg's shared entity map, which is
+the structure CVE-2026-96889 is about, so there is nothing there for this
+payload to act on. It is not contained on Edge, it is irrelevant on Edge.
 
 Two separate properties get credited to Edge and they are worth keeping apart.
 The first is that it runs different code, which is why this particular CVE does
@@ -467,8 +489,9 @@ decision is about the root cause, not about your route to it. I had a different
 delivery path, on builds past the fix that was supposed to close this, and that
 is a real and separate fact about reachability. It is still the same underlying
 defect in the same library, so from the program's side there is one thing to
-track and one thing to fix. Finding a second door into a room somebody has
-already reported does not give you a second room.
+track and one thing to fix. Finding another delivery path can show real
+exposure without establishing a new root cause, and those are two different
+contributions that a triage queue is not built to separate.
 
 The remedy there is a Sharp version bump rather than a change to Next.js code,
 which is section 1 restated: the memory-safety defect was upstream, and what the
