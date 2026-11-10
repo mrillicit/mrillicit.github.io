@@ -35,10 +35,9 @@ parser on builds already patched against the first, and the test matrix showing
 it. Not a novel vulnerability. A reachability result.
 
 One distinction to hold on to throughout, because everything turns on it.
-Next.js does not expose an endpoint that accepts your SVG. It offers a
-capability, and an application can write a route that feeds that capability a
-stranger's document. The framework supplies the pipe. The application decides
-who gets to pour into it.
+Next.js provides the rendering capability, but the application decides whether
+an unauthenticated requester can hand it a complete SVG document. There is no
+stock endpoint that accepts one.
 
 That is a smaller claim than the headline, and it is still the part I think is
 worth your time, because a patch that closes one road does not close the road
@@ -269,33 +268,39 @@ can be a `data:` URI.
 
 This is the part worth proving rather than asserting, so here is the shipped
 code. Satori reaches Next.js vendored and minified inside
-`next/dist/compiled/@vercel/og/index.node.js`, so the names below are the
-bundle's, not the author's:
+`next/dist/compiled/@vercel/og/index.node.js`.
+
+One caveat before you read it. These names are minifier output, not the
+author's, and they are **regenerated on every build**. The same function is
+`l2`/`Os` in the Next 16.3.5 bundle and `c2`/`Js` in 16.3.8. So an excerpt like
+this is only meaningful against a named artifact. Mine is the Node OG bundle
+shipped with **next@16.3.8**, SHA-256
+`5b83a550efb5f9b693881b6e1bf1b0cec7912aa17de8f4cff805b870a2801a66`:
 
 ```js
 if (A.startsWith("data:")) {
   // ...regex splits A into { imageType: i, encodingType: o, dataString: a }
   if (i === ei) {                       // ei is "image/svg+xml"
     let u2 = o === "base64" ? atob(a) : decodeURIComponent(...),
-        // the kept value when base64: A, the URI exactly as it arrived
-        l2 = o === "base64" ? A : `data:image/svg+xml;base64,${btoa(u2)}`,
-        // Os only reads width/height out of the decoded copy
-        I  = Os(A, u2);
-    return _e.set(A, [l2, ...I]), [l2, ...I];
+        // base64 keeps A, the URI exactly as it arrived.
+        // anything else is decoded and re-encoded.
+        c2 = o === "base64" ? A : `data:image/svg+xml;base64,${btoa(u2)}`,
+        // Js only reads width/height out of the decoded copy
+        I  = Js(A, u2);
+    return _e.set(A, [c2, ...I]), [c2, ...I];
   }
 }
 ```
 
-Read the middle line. When the encoding is base64, the value Satori keeps is
-`A`, which is **the data URI exactly as it arrived**. It decodes your document
-into `u2`, and it uses that decoded copy for one purpose only: `Os` measures the
-width and height so layout can reserve a box. Then it throws the decoded copy
-away and emits the original string.
+Read the middle line, and notice it has two branches. A base64 data URI is kept
+as `A`, **exactly as it arrived**. Anything else is decoded and built back into
+a fresh string. Satori does decode your document into `u2` either way, but on
+the base64 branch it uses that copy for one purpose only: `Js` measures width
+and height so layout can reserve a box. Then it discards the copy and emits your
+original string.
 
-So your SVG is never parsed as markup, never re-serialized, never escaped. It is
-measured and copied. That single fact is the whole finding, and it is why the
-escaping fix in section 3 cannot reach this: there is no serialization step here
-to harden.
+That branch is the finding. A base64-encoded SVG is measured and copied, never
+re-serialized.
 
 ```tsx
 // application code, not framework code
@@ -314,19 +319,58 @@ export async function POST(req: Request) {
 "Let users upload their own share card" is an ordinary feature request. That is
 the chain.
 
-And it explains why the serializer fix does not help here. The fix for
-CVE-2026-94545 escapes text and attribute values as Satori writes them into the
-SVG it builds. The document in this case was never written in that way. It
-arrived complete, as an image data URI, and was copied across whole. It does not
-bypass the serializer fix. It never reaches the code that fix changed.
+### Why the serializer fix does not reach this
+
+Worth being careful here, because the obvious summary is too broad.
+
+The hardening in
+[Next.js PR #99061](https://github.com/vercel/next.js/pull/99061), which rebuilt
+the OG bundles against
+[Satori commit `26a52aff`](https://github.com/vercel/satori/commit/26a52affc031216fee5882b6e965c8dbc7ac1782)
+for
+[GHSA-vcvr-r3jv-pc5j](https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j),
+did several things: XML text and attribute escaping, element and attribute name
+validation, internal-style rejection, and **ampersand encoding for embedded SVG
+data URLs**. That last item sounds like it should cover exactly this case.
+
+It does not, and you can check that rather than take my word for it. Diff the
+data-URI region of the pre-fix bundle against the post-fix one. In Next 16.3.5
+against 16.3.8, the only differences in that block are the minifier renames
+above:
+
+```diff
+-  l2 = o === "base64" ? A : `data:image/svg+xml;base64,...`
++  c2 = o === "base64" ? A : `data:image/svg+xml;base64,...`
+-  I = Os(A, u2)
++  I = Js(A, u2)
+```
+
+Same logic, different names. The encoding work the fix added lives on the branch
+that rebuilds the URI, which is the branch a base64 input never takes.
+
+So this is **not a bypass of the serializer hardening**. Those checks were
+present and they did their job on the inputs they govern. It is a different
+delivery path into the same native renderer, and the hardening was never
+positioned across it.
 
 ## 7. Six bytes
 
-A working exploit document for the librsvg CVE already existed publicly, in
-EQSTLab's proof of concept for CVE-2026-94545, and the nested XML and path data
-carrying the control flow are their work, not mine. I pinned it at one commit
-and changed one thing: the only command became a write of six bytes to a
-file. Padding and addresses untouched, because they are tuned to one allocator
+A working exploit document already existed publicly, in
+[EQSTLab's proof of concept](https://github.com/EQSTLab/CVE-2026-94545) for
+CVE-2026-94545. The nested XML, the XInclude structure and the SVG path data
+carrying the control-flow payload are their work, not mine.
+
+It is worth saying why a PoC filed under the Satori CVE contains a librsvg
+exploit at all, because the numbering hides it. Their PoC has two parts. The
+first is a delivery trick: an application route that writes request text into an
+SVG `<title>`, which is the serializer injection CVE-2026-94545 describes. The
+second is the document that injection delivers, and that document is a librsvg
+use-after-free trigger. CVE-2026-94545 got them in. CVE-2026-96889 is what ran.
+
+Which means the two parts can be separated, and that is the whole of what I
+did. I kept their document, pinned at one commit, and replaced their delivery
+with mine. One change inside it: the only command became a write of six bytes to
+a file. Padding and addresses untouched, since they are tuned to one allocator
 and one Node build and I had no reason to retune them.
 
 The delivery is what I changed. The public exploit arrives by injection into the
