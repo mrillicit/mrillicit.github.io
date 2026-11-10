@@ -1,10 +1,10 @@
 ---
 title: "Nobody installs librsvg, and everybody runs it"
-description: "Four dependencies below your Next.js app sits an SVG parser driving C code from 1999. Everyone locks the obvious route to it. There is a second one, and it is the feature that makes your link previews."
+description: "A known use-after-free in a native SVG parser, four dependencies below Next.js. The obvious route to it is locked. A second one runs through next/og, in applications that hand it a user-supplied SVG."
 pubDatetime: 2026-11-03T06:00:00Z
 modDatetime: 2026-11-08T09:00:00Z
-severity: "critical"
-target: "librsvg via Next.js next/og"
+severity: "note"
+target: "librsvg reachability via next/og"
 theme: "web"
 tags: ["collisions", "native", "upstream", "methodology"]
 ---
@@ -30,13 +30,35 @@ The memory-corruption bug is not mine. It was found upstream in librsvg and
 already had a CVE. The exploit document is not mine either, and I say where it
 came from in section 7.
 
-What is mine is the **route**: the finding that a second, unlocked path reaches
-that parser on builds that had already been patched against the first path, and
-the test matrix showing it. Not a novel vulnerability. A reachability result.
+What is mine is the **route**: the finding that a second path reaches that
+parser on builds already patched against the first, and the test matrix showing
+it. Not a novel vulnerability. A reachability result.
+
+One distinction to hold on to throughout, because everything turns on it.
+Next.js does not expose an endpoint that accepts your SVG. It offers a
+capability, and an application can write a route that feeds that capability a
+stranger's document. The framework supplies the pipe. The application decides
+who gets to pour into it.
 
 That is a smaller claim than the headline, and it is still the part I think is
 worth your time, because a patch that closes one road does not close the road
 nobody mapped.
+
+The configuration it was shown in, up front so you can judge the rest against
+it:
+
+| | |
+|---|---|
+| Entry point | an application route I wrote, which forwards a request body into `ImageResponse` |
+| Next.js | 16.3.8, and 16.3.5 and 16.3.6 for the comparison rows |
+| Sharp | 0.35.4 affected, 0.35.5 fixed |
+| librsvg | 2.62.91 affected, 2.63.2 fixed |
+| Runtime | Node v24.20.0 x64, the official Linux archive, checked against the published SHA-256 |
+| Host | Debian bookworm, glibc, offline containers |
+| Result | a six-byte marker file written on the affected rows, a normal PNG on the fixed rows |
+
+No stock Next.js endpoint is in that table, and that is the point of the first
+row.
 
 ## Table of contents
 
@@ -292,9 +314,14 @@ and one Node build and I had no reason to retune them.
 
 The delivery is what I changed. The public exploit arrives by injection into the
 generated SVG, which is the route closed in 16.3.6. Mine arrives as a child
-image, on builds **past** that fix. The hardening was present and never fired.
+image, on builds **past** that fix. Not because the hardening failed. It was
+aimed at a different input mechanism, and a document that is copied rather than
+serialized never passes through the code it hardened.
 
-One POST. The connection closes with no response, because a successful `execve`
+One POST. The connection closes with no response, which is what you would
+expect if the worker had been replaced mid-request, though I should be careful
+here: I have the marker and the dead connection, not process-level evidence
+that the replacement was specifically an `execve`
 replaces the running process, so no worker survives to answer. Then:
 
 ```console
@@ -334,8 +361,8 @@ first rendered a harmless red square and had the centre pixel checked for
 cell rather than a quiet one. The marker file had to appear, and it is a file
 the application has no code to create, so nothing but the payload could have
 written it. And the connection had to close with no response, which is what a
-successful `execve` looks like from outside: the process that owed you a reply
-has been replaced by the thing you asked for.
+a replaced process looks like from outside: nothing is left that owes you a
+reply.
 
 A crash gives you the closed connection and nothing else. It is the marker that
 separates the two, and it is why the payload writes a file instead of doing
@@ -355,8 +382,12 @@ result needs all of:
 - **A matching non-PIE Node x64 binary** and a favourable heap layout for the
   specific payload to work unmodified.
 
-Drop any one of those and what remains is a crash risk rather than a demonstrated
-command.
+These do not fail the same way. Remove the application route and there is no
+reachability at all, because nothing delivers the document. Move to a fixed
+librsvg and the parser simply does not have the bug. Change the Node binary or
+the heap layout and the path is still reachable, but this particular payload's
+hardcoded addresses stop meaning anything, which leaves a crash risk rather
+than a demonstrated command.
 
 ## 8. Edge is not this bug behind a sandbox
 
@@ -390,8 +421,10 @@ if (sharp) {
 
 Three things fall out of those nine lines.
 
-The Satori output goes into `sharp()` with nothing in between. No inspection, no
-validation, no allowlist. The trust boundary in the diagram is not a
+The Satori output goes into `sharp()` with no security check in between. Not
+"no inspection" in general, because section 6 showed Satori reading the
+document to measure it. No validation of what the document is allowed to
+contain, and no loader allowlist of the kind the optimizer applies. The trust boundary in the diagram is not a
 simplification, it is that line.
 
 The branch is `if (sharp)`, not the runtime. A Node deployment without Sharp
@@ -406,8 +439,9 @@ is not contained there, it is irrelevant there.
 Two separate properties get credited to Edge and they are worth keeping apart.
 The first is that it runs different code, which is why this particular CVE does
 not apply. The second is that WebAssembly is a sandbox with linear memory and no
-syscalls, so even a genuine memory bug in `resvg` would have to escape that
-before it reached a shell. On Node there is no second property to fall back on:
+syscalls, so a memory bug in `resvg` starts from a worse position for an
+attacker than one in a native addon does. How much worse depends on what host
+interfaces that sandbox is given, which I did not test. On Node there is no second property to fall back on:
 Sharp is a native addon inside the server process, and execution there holds the
 filesystem, the environment variables and the network position of your
 application.
