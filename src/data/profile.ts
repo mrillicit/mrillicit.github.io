@@ -1,3 +1,5 @@
+import { resolveFirstProfileImage } from "@/utils/resolveProfileImage";
+
 /**
  * Everything personal about this site lives here.
  *
@@ -59,8 +61,29 @@ export const tagline = "Security guy. Illicit in name only.";
 export const intro =
   "Dubai. Most of what I find lives below the code anyone chose to install.";
 
-/** Path under /public for the avatar, or "" to show initials instead. */
-export const avatar = "";
+/**
+ * Profile photo. Drop a file named `avatar` into `public/` (png, jpg or webp)
+ * and it is picked up automatically. With no such file the hero falls back to
+ * the initials block, so nothing breaks.
+ */
+export const avatar = resolveFirstProfileImage([
+  "avatar.png",
+  "avatar.jpg",
+  "avatar.jpeg",
+  "avatar.webp",
+]);
+
+/**
+ * Wide cover photo behind the hero. Same idea: drop a `banner` file into
+ * `public/` and it appears, leave it out and the section is simply not
+ * rendered. Roughly 3:1 and at least 1600px wide keeps it sharp on desktop.
+ */
+export const banner = resolveFirstProfileImage([
+  "banner.jpg",
+  "banner.jpeg",
+  "banner.png",
+  "banner.webp",
+]);
 
 /**
  * Shown under the bio on /about. Set to "" to hide it.

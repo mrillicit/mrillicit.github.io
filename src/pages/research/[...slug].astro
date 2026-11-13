@@ -28,7 +28,6 @@ const {
   severity,
   target,
   pubDatetime,
-  modDatetime,
   links,
 } = entry.data;
 
@@ -78,13 +77,6 @@ const linkRow = [
       >
         {fmt(pubDatetime)}
       </time>
-      {
-        modDatetime && (
-          <span class="text-muted-foreground text-xs">
-            (updated {fmt(modDatetime)})
-          </span>
-        )
-      }
     </div>
 
     <h1
