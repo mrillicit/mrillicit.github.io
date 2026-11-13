@@ -1,0 +1,35 @@
+---
+import { banner } from "@/data/profile";
+
+type Props = {
+  /** Tighter on /about, where the page title follows straight after. */
+  compact?: boolean;
+};
+
+const { compact = false } = Astro.props as Props;
+---
+
+{
+  banner && (
+    <div
+      class:list={[
+        "border-border relative overflow-hidden rounded-lg border",
+        compact ? "mt-6 h-28 sm:h-36" : "mt-8 h-36 sm:h-48",
+      ]}
+    >
+      <img
+        src={banner}
+        alt=""
+        aria-hidden="true"
+        loading="eager"
+        decoding="async"
+        class="h-full w-full object-cover"
+      />
+      {/* Keeps the avatar edge and any text legible over a busy photo. */}
+      <div
+        aria-hidden="true"
+        class="from-background/70 absolute inset-0 bg-gradient-to-t to-transparent"
+      />
+    </div>
+  )
+}

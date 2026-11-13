@@ -10,6 +10,8 @@ import ResearchCard from "@/components/ResearchCard.astro";
 import LinkButton from "@/components/LinkButton.astro";
 import { getSortedResearch } from "@/utils/getSortedResearch";
 import { displayName, tagline, intro, avatar } from "@/data/profile";
+import ProfileBanner from "@/components/ProfileBanner.astro";
+import { banner } from "@/data/profile";
 import config from "@/config";
 
 const { socials, posts: postsConfig } = config;
@@ -45,11 +47,14 @@ const initials = displayName
       selected.length === 0 && "justify-center",
     ]}
   >
+    <ProfileBanner />
+
     <section
       id="hero"
       class:list={[
         "flex flex-col gap-7 sm:flex-row sm:gap-8",
         selected.length === 0 ? "py-16" : "pt-12 pb-10",
+        banner && "pt-6 sm:pt-7",
       ]}
     >
       {
@@ -59,7 +64,12 @@ const initials = displayName
             alt={displayName}
             width="112"
             height="112"
-            class="border-border size-24 shrink-0 rounded-full border object-cover sm:size-28"
+            class:list={[
+              "border-background bg-background relative z-10 size-24 shrink-0 rounded-full border-4 object-cover shadow-sm sm:size-28",
+              // Only the avatar rides up over the cover photo. The heading
+              // beside it keeps its own spacing.
+              banner && "-mt-16 sm:-mt-20",
+            ]}
           />
         ) : (
           <div
