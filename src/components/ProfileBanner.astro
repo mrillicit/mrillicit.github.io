@@ -25,11 +25,6 @@ const { compact = false } = Astro.props as Props;
         decoding="async"
         class="h-full w-full object-cover"
       />
-      {/* Keeps the avatar edge and any text legible over a busy photo. */}
-      <div
-        aria-hidden="true"
-        class="from-background/70 absolute inset-0 bg-gradient-to-t to-transparent"
-      />
     </div>
   )
 }
