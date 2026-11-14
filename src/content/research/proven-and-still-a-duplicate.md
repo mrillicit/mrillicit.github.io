@@ -1,90 +1,53 @@
 ---
-title: "Nobody installs librsvg, and everybody runs it"
-description: "A known use-after-free in a native SVG parser, four dependencies below Next.js. The obvious route to it is locked. A second one runs through next/og, in applications that hand it a user-supplied SVG."
-pubDatetime: 2026-11-03T06:00:00Z
-modDatetime: 2026-11-08T09:00:00Z
-severity: "note"
-target: "librsvg reachability via next/og"
+title: "Reachability x Exploitability via upstream leads to RCE"
+description: "A known use-after-free in a native SVG parser, four dependencies below Next.js. The obvious route to it is hardened. A second one runs through next/og, in applications that hand it a user-supplied SVG."
+pubDatetime: 2026-11-14T06:00:00Z
+severity: "critical"
+target: "NextJS"
 theme: "web"
 tags: ["collisions", "native", "upstream", "methodology"]
 ---
 
-Native image parsers have been a good place to find memory corruption for
-twenty years. Nobody who does this for a living is surprised by that. What is
-worth writing down is not the sink, it is the road: which ordinary feature, in
-which ordinary framework, quietly hands a stranger's bytes to one.
+One unauthenticated POST carrying an SVG, and a command inside that SVG ran as
+the Next.js server process. The command wrote six bytes to a file. On the same
+application with a newer native library underneath it, the same request came back
+a normal PNG and wrote nothing.
 
-In an application I wrote for the test, one anonymous POST carrying an SVG
-reached a native library four dependencies below the framework, and a command
-inside that SVG ran as the Next.js server process. The command wrote six bytes
-to a file. On the build with the newer native library, the same request
-returned a normal PNG and wrote nothing.
+The report was closed as a duplicate. Thirteen days later Vercel published the
+advisory anyway.
 
-The report came back a duplicate. That is not the interesting part.
+## What this is, and what it is not
 
-### What this is, and what it is not
+Worth being exact before the rest, because the difference matters.
 
-Worth being exact before you read on, because the difference matters.
+The memory-corruption bug is not mine. It is librsvg's, it already had a CVE, and
+it was already patched upstream.
 
-The memory-corruption bug is not mine. It was found upstream in librsvg and
-already had a CVE. The exploit document is not mine either, and I say where it
-came from in section 7.
+What is mine is the route. A second path reaches that parser on builds already
+patched against the first path, and the matrix below shows where it does and
+does not work. That is a reachability result, not a new vulnerability.
 
-What is mine is the **route**: the finding that a second path reaches that
-parser on builds already patched against the first, and the test matrix showing
-it. Not a novel vulnerability. A reachability result.
-
-One distinction to hold on to throughout, because everything turns on it.
-Next.js provides the rendering capability, but the application decides whether
-an unauthenticated requester can hand it a complete SVG document. There is no
-stock endpoint that accepts one.
-
-That is a smaller claim than the headline, and it is still the part I think is
-worth your time, because a patch that closes one road does not close the road
-nobody mapped.
-
-The configuration it was shown in, up front so you can judge the rest against
-it:
+One distinction to hold throughout. Next.js does not expose an endpoint that
+accepts your SVG. It offers a rendering capability, and an application decides
+whether an unauthenticated requester may hand that capability a complete
+document. No stock endpoint does this. The route in my test app does.
 
 | | |
 |---|---|
-| Entry point | an application route I wrote, which forwards a request body into `ImageResponse` |
-| Next.js | 16.3.8, and 16.3.5 and 16.3.6 for the comparison rows |
+| Entry point | an application route that forwards a request body into `ImageResponse` |
+| Next.js | 16.3.8, plus 16.3.5 and 16.3.6 for comparison |
 | Sharp | 0.35.4 affected, 0.35.5 fixed |
 | librsvg | 2.62.91 affected, 2.63.2 fixed |
-| Runtime | Node v24.20.0 x64, the official Linux archive, checked against the published SHA-256 |
+| Runtime | Node v24.20.0 x64, official Linux archive, checked against the published SHA-256 |
 | Host | Debian bookworm, glibc, offline containers |
-| Result | a six-byte marker file written on the affected rows, a normal PNG on the fixed rows |
 
-No stock Next.js endpoint is in that table, and that is the point of the first
-row.
+## Starting at the sink
 
-## Table of contents
+The first question was not what I could send. It was what native code sits under
+the request path at all.
 
-## How upstream research works
-
-A recurring shape in framework RCEs, and not the shape most people look
-for:
-
-1. A **vendored library** on the request path processes attacker data.
-2. The flaw is **in that library's own code**.
-3. The **integration** makes it reachable unauthenticated, and gives it
-   authority it should not have.
-
-The bug belongs to the library. The framework is delivery and amplification.
-
-That ordering is also a search strategy. Most people start at the entry point
-and push inwards, trying payloads against whatever the app exposes. Starting at
-the other end works better: find the dangerous code first, then go looking for
-a road to it.
-
-## 1. Starting from the sink
-
-So the first question was not "what can I send". It was "what native code is
-sitting under this request path at all".
-
-Searching a Next.js `package.json` for librsvg finds nothing. The only clue is
-one line in the framework's own manifest:
+Search a Next.js `package.json` for librsvg and you find nothing. The only clue
+is one line in the framework's own manifest:
 
 ```jsonc
 // next/package.json, v16.3.8
@@ -93,9 +56,7 @@ one line in the framework's own manifest:
 }
 ```
 
-Optional. That word is doing a lot of work. Sharp is the image library Next.js
-uses for server-side image work, and in practice plenty of deployments have it
-because the framework asks for it. Follow it down:
+Follow it down:
 
 ```
 sharp        the Node addon you installed
@@ -104,57 +65,13 @@ sharp        the Node addon you installed
       -> libxml2   the XML parser, C, from 1999
 ```
 
-Four levels below anything you chose, running in-process with your server's
-permissions. Nobody on the team has opened any of it.
+Four levels below anything you chose, running in your server process with your
+server's permissions. That word "optional" turns out to be load-bearing, and I
+come back to it.
 
-To be exact about the claim in the title: this pipeline is only present when
-those packages actually resolve. It is not universal. It is just far more
-common than the number of people who could name `librsvg` if you asked them.
+## The flaw
 
-And "optional" turns out to be load-bearing in a very literal way. Section 8
-shows the line in the shipped bundle where the renderer is chosen, and the
-condition is not the runtime, it is `if (sharp)`. Whether a request reaches C
-or reaches WebAssembly comes down to whether one optional package was present
-at install time.
-
-## 2. The picture before the detail
-
-Before any of the parser internals, here is the path the bytes travel in the
-app I tested:
-
-```
-  HTTP POST, unauthenticated
-        |
-        v
-  [ application route handler ]
-  app code, not framework code.
-  puts the body into an
-  <img src="data:image/svg+xml;...">
-        |
-        v
-  [ Satori ]  JavaScript
-  turns JSX and CSS into an SVG,
-  copying that data: URI through
-        |
-  = = = = = = = = = = = = = = = =
-  trust boundary crossed here
-  untrusted SVG enters native code
-        |
-        v
-  [ Sharp -> libvips -> librsvg ]
-  native C, in your server process.
-  parses the whole document, the
-  attacker's child SVG included
-```
-
-The last stage is where memory safety stops being somebody else's problem. Note
-the top box. **The complete attacker-controlled SVG is supplied by the
-application handler, not by a stock Next.js endpoint.** I come back to that in
-section 7, because it is the single biggest limit on this result.
-
-## 3. The flaw in librsvg
-
-Two ordinary XML features. Neither is a bug on its own.
+Two ordinary XML features, neither a bug alone.
 
 **Entities** are shortcuts a document defines for itself:
 
@@ -163,45 +80,28 @@ Two ordinary XML features. Neither is a bug on its own.
 <svg xmlns="http://www.w3.org/2000/svg"><text>&greeting;</text></svg>
 ```
 
-librsvg allows these on purpose. It blocks the kind that point at files on
-disk, which is what stops `&xxe;` reading `/etc/passwd`. The kind that just
-expand text were left on.
+librsvg allows these, but blocks the kind that point at files on
+disk, which is what stops `&xxe;` reading `/etc/passwd`.
 
 **XInclude** pastes another document inline, and nests.
 
-Now the collision, in order.
+Now the collision, in order. libxml2 is expanding an entity in the outer
+document. Part way through, a nested XInclude parses a second document. That
+document declares an entity with the same name, so librsvg replaces the entry in
+the entity map the two share. The replacement frees an object the outer parse is
+still holding, and when the outer parse resumes it reads memory that has already
+been released.
 
-libxml2 is expanding an entity in the outer document. Part way through, a nested
-XInclude causes a second document to be parsed. That document declares an entity
-**with the same name**, and librsvg replaces the existing entry in the entity map
-the two share. The replacement frees an object the outer parse is still holding.
-When the outer parse resumes, it reads memory that has already been released.
+That is [CVE-2026-96889](https://rustsec.org/advisories/RUSTSEC-2026-0305.html).
+I tested librsvg 2.62.91 as affected and 2.63.2 as fixed. RustSec lists fixes on
+more than one release branch, so check your own build rather than one version
+number.
 
 Triggering the invalid read is not the same as controlling it. An attacker also
-has to influence what gets allocated into the freed space, which is the part
-that depends on the allocator and on the payload being built for it.
+has to influence what lands in the freed space, which is the part that depends on
+the allocator and on a payload built for it.
 
-That is
-[CVE-2026-96889](https://rustsec.org/advisories/RUSTSEC-2026-0305.html).
-The versions I tested were librsvg 2.62.91 affected and 2.63.2 fixed. RustSec
-lists fixes on more than one release branch, so check your own build rather than
-trusting a single version number.
-
-Freed memory gets reused. The next allocation of that size can land on the same
-address, so you shape the document until the thing landing there is yours.
-librsvg then reads your bytes as its own bookkeeping and follows pointers you
-wrote.
-
-What makes it land reliably rather than at random: the official Node.js Linux
-x64 binary is built **non-PIE**, so it loads at a fixed address and the gadgets
-inside it sit at the same place in every copy of that same build. No memory leak
-needed. That is a property of one binary on one platform, and it is exactly why
-Sharp's own advisory treats position-independent builds as a mitigation. Swap
-the Node build and the addresses in the payload stop meaning anything.
-
-### Two CVEs, and they are not the same bug
-
-These get conflated constantly, so, plainly:
+Two CVEs get conflated constantly here, so, plainly:
 
 | | CVE-2026-94545 | CVE-2026-96889 |
 |---|---|---|
@@ -209,73 +109,32 @@ These get conflated constantly, so, plainly:
 | What | attacker text written into the generated SVG without proper escaping | use-after-free on a duplicate entity during XInclude |
 | Fixed in | Next.js 16.3.6 | librsvg 2.63.2, reaching apps via Sharp 0.35.5 |
 
-The first is an **injection** bug: you smuggle markup into a document somebody
-else is building. The second is a **memory corruption** bug in the code that
-later parses that document. Patching the first does not touch the second. That
-distinction is the whole story below.
+The first is an injection bug. The second is memory corruption in the code that
+later parses the result. Patching the first does not touch the second.
 
-## 4. The optimizer was the wrong place to look
+## The optimizer was the wrong place to look
 
-`/_next/image`, the image optimizer, is where everyone goes first. I did too.
+`/_next/image` is where everyone goes first, and I did too.
 
-SVG there is refused unless the developer turns on `dangerouslyAllowSVG`, which
-is off by default, and the libvips loaders are cut down to a short allowlist.
-That is real hardening, and it is why I stopped spending time on it.
-
-That restriction is a default, not a guarantee, and it would be wrong to write
-it up as one. On 2026-11-03, after everything below had already happened, Vercel published
-[GHSA-7qx7-33qx-rqx2](https://github.com/vercel/next.js/security/advisories/GHSA-7qx7-33qx-rqx2):
-an image from a permitted source can be misclassified as AVIF, slip past
-`dangerouslyAllowSVG: false`, and still get decoded as SVG. The setting you
-trusted to keep SVG out did not keep SVG out. Self-hosted deployments, fixed in
-15.5.29 and 16.4.5.
-
-So the defended path had a bypass in it too. My point was only ever the
-narrower one. A surface that has been deliberately hardened, and is therefore
-the surface everyone else is also testing, is an expensive place to spend a
-week. The question I took to `next/og` was simply whether a second
-application-facing rendering path could reach the same library.
-
-## 5. The observation that moved it
+A surface somebody has deliberately hardened
+is the surface everyone else is also testing, and that makes it an expensive
+place to spend a week. The question I took elsewhere was whether a second
+application-facing rendering path reached the same library.
 
 `next/og` generates Open Graph images, the preview card that appears when
-somebody pastes your link into a chat app. The thing worth noticing is that it
-**does not reuse the optimizer at all**. Different module, different first
-stage, different assumptions.
+somebody pastes your link into a chat app. It does not reuse the optimizer. Its
+first stage is Satori, which turns JSX and CSS into an SVG document in pure
+JavaScript, and on the Node runtime that SVG then goes to Sharp.
 
-Its first stage is Satori, a Vercel library that turns JSX and CSS into an SVG
-document in pure JavaScript. It runs layout, converts text to outlines, emits
-shapes. No browser. On the Node runtime, that SVG then goes to Sharp, and down
-the chain from section 1.
 
-The two pipelines differ in one assumption about their input. The optimizer
-treats what it receives as hostile, because it fetches from the internet.
-`next/og` treats the SVG it renders as its own, because Satori generated it
-microseconds earlier. That assumption holds for the structure Satori emits. It
-does not hold for the contents of an image the application asked Satori to
-embed.
+## What the shipped code says
 
-One pipeline validates its input because it was written to expect hostile
-input. The other does not, because nothing in its design anticipated input it
-did not generate.
+Minified names are regenerated on every build. The same function is `l2` and `Os`
+in the 16.3.5 bundle and `c2` and `Js` in 16.3.8, so an excerpt means nothing
+without the artifact it came from. Everything below is from the Node OG bundle
+shipped with **next@16.3.8**, and the names are the bundle's.
 
-## 6. Satori embeds images, and an image can be a document
-
-The remaining question was how a requester gets bytes into that trusted SVG.
-
-Satori does not only turn JSX into shapes. It embeds images, and an image source
-can be a `data:` URI.
-
-This is the part worth proving rather than asserting, so here is the shipped
-code. Satori reaches Next.js vendored and minified inside
-`next/dist/compiled/@vercel/og/index.node.js`.
-
-One caveat before you read it. These names are minifier output, not the
-author's, and they are **regenerated on every build**. The same function is
-`l2`/`Os` in the Next 16.3.5 bundle and `c2`/`Js` in 16.3.8. So an excerpt like
-this is only meaningful against a named artifact. Mine is the Node OG bundle
-shipped with **next@16.3.8**, SHA-256
-`5b83a550efb5f9b693881b6e1bf1b0cec7912aa17de8f4cff805b870a2801a66`:
+Satori handling an SVG data URI:
 
 ```js
 if (A.startsWith("data:")) {
@@ -293,14 +152,52 @@ if (A.startsWith("data:")) {
 ```
 
 Read the middle line, and notice it has two branches. A base64 data URI is kept
-as `A`, **exactly as it arrived**. Anything else is decoded and built back into
-a fresh string. Satori does decode your document into `u2` either way, but on
-the base64 branch it uses that copy for one purpose only: `Js` measures width
-and height so layout can reserve a box. Then it discards the copy and emits your
-original string.
+as `A`, the URI exactly as it arrived. Anything else is decoded and rebuilt.
+Satori does read your document either way, but on the base64 branch it reads it
+for one purpose only, which is to measure width and height so layout can reserve
+a box. Then it discards that copy and emits your original string.
 
-That branch is the finding. A base64-encoded SVG is measured and copied, never
-re-serialized.
+Where the SVG goes next is decided by one ternary, in
+`next/dist/server/og/image-response.js`:
+
+```js
+function importModule() {
+  return import(
+    process.env.NEXT_RUNTIME === 'edge'
+      ? 'next/dist/compiled/@vercel/og/index.edge.js'
+      : 'next/dist/compiled/@vercel/og/index.node.js'
+  );
+}
+```
+
+And inside the Node bundle, at the point it renders:
+
+```js
+if (sharp) {
+  pngBuffer = await sharp(new TextEncoder().encode(svg))
+    .resize(...).png().toBuffer();
+} else {
+  const resvgJS = new resvg.Resvg(svg, { ... });
+}
+```
+
+Three things fall out of those lines.
+
+Satori's output enters `sharp()` with no security check in between. Not "no
+inspection", because the excerpt above shows Satori reading the document to
+measure it, but no validation of what it is allowed to contain and no loader
+allowlist of the kind the optimizer applies.
+
+The branch is `if (sharp)`, not the runtime. A Node deployment where Sharp never
+resolved takes the `else` and renders with resvg. That optional dependency
+decides the attack surface.
+
+And Edge is not this bug behind a sandbox. `resvg` is a separate SVG
+implementation in Rust. It does not use librsvg's shared entity map, which is the
+structure CVE-2026-96889 is about, so there is nothing there for this payload to
+act on. It is not contained on Edge, it is irrelevant on Edge.
+
+That leaves the application. This is an ordinary feature request:
 
 ```tsx
 // application code, not framework code
@@ -316,27 +213,21 @@ export async function POST(req: Request) {
 }
 ```
 
-"Let users upload their own share card" is an ordinary feature request. That is
-the chain.
+## Why the serializer fix does not reach this
 
-### Why the serializer fix does not reach this
+The obvious summary is too broad, so it is worth being careful.
 
-Worth being careful here, because the obvious summary is too broad.
-
-The hardening in
-[Next.js PR #99061](https://github.com/vercel/next.js/pull/99061), which rebuilt
-the OG bundles against
+The hardening in [PR #99061](https://github.com/vercel/next.js/pull/99061), which
+rebuilt the OG bundles against
 [Satori commit `26a52aff`](https://github.com/vercel/satori/commit/26a52affc031216fee5882b6e965c8dbc7ac1782)
-for
-[GHSA-vcvr-r3jv-pc5j](https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j),
+for [GHSA-vcvr-r3jv-pc5j](https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j),
 did several things: XML text and attribute escaping, element and attribute name
-validation, internal-style rejection, and **ampersand encoding for embedded SVG
-data URLs**. That last item sounds like it should cover exactly this case.
+validation, internal-style rejection, and ampersand encoding for embedded SVG
+data URLs. That last item sounds like it should cover exactly this case.
 
-It does not, and you can check that rather than take my word for it. Diff the
-data-URI region of the pre-fix bundle against the post-fix one. In Next 16.3.5
-against 16.3.8, the only differences in that block are the minifier renames
-above:
+It does not, and you can check rather than take my word for it. Diff the data-URI
+region of the pre-fix bundle against the post-fix one. Between 16.3.5 and 16.3.8
+the only changes in that block are the minifier renames:
 
 ```diff
 -  l2 = o === "base64" ? A : `data:image/svg+xml;base64,...`
@@ -346,223 +237,48 @@ above:
 ```
 
 Same logic, different names. The encoding work the fix added lives on the branch
-that rebuilds the URI, which is the branch a base64 input never takes.
+that rebuilds the URI, and a base64 input never takes that branch.
 
-So this is **not a bypass of the serializer hardening**. Those checks were
-present and they did their job on the inputs they govern. It is a different
-delivery path into the same native renderer, and the hardening was never
-positioned across it.
+So this is not a bypass of the serializer hardening. Those checks were present
+and they did their job on the inputs they govern. It is a different delivery path
+into the same native renderer, and the hardening was never positioned across it.
 
-## 7. Six bytes
+## The proof
 
-A working exploit document already existed publicly, in
-[EQSTLab's proof of concept](https://github.com/EQSTLab/CVE-2026-94545) for
-CVE-2026-94545. The nested XML, the XInclude structure and the SVG path data
-carrying the control-flow payload are their work, not mine.
+![Triage response closing the report as a duplicate, dated October 1 2026. It states that the report describes the same vulnerability as a prior submission, identifying the same attack surface, a nested SVG document passed through to the image processing pipeline, and the same resulting impact.](../../assets/images/duplicate-triage.png)
 
-It is worth saying why a PoC filed under the Satori CVE contains a librsvg
-exploit at all, because the numbering hides it. Their PoC has two parts. The
-first is a delivery trick: an application route that writes request text into an
-SVG `<title>`, which is the serializer injection CVE-2026-94545 describes. The
-second is the document that injection delivers, and that document is a librsvg
-use-after-free trigger. CVE-2026-94545 got them in. CVE-2026-96889 is what ran.
+## Duplicate, then the advisory
 
-Which means the two parts can be separated, and that is the whole of what I
-did. I kept their document, pinned at one commit, and replaced their delivery
-with mine. One change inside it: the only command became a write of six bytes to
-a file. Padding and addresses untouched, since they are tuned to one allocator
-and one Node build and I had no reason to retune them.
+**2026-10-01.** Closed as a duplicate. The triage note named the same attack
+surface, a nested SVG passed through to the image pipeline, and the same impact,
+already tracked under an earlier private report.
 
-The delivery is what I changed. The public exploit arrives by injection into the
-generated SVG, which is the route closed in 16.3.6. Mine arrives as a child
-image, on builds **past** that fix. Not because the hardening failed. It was
-aimed at a different input mechanism, and a document that is copied rather than
-serialized never passes through the code it hardened.
-
-One POST. The connection closes with no response. That on its own proves
-nothing, because a parser falling over looks the same from outside. The marker
-is the evidence:
-
-```console
-$ cat /tmp/next-og-rce-proof
-PROVEN
-```
-
-Every cell below used the same nested SVG and ran a benign red-pixel control
-first, so a failure to render could not be mistaken for a failure to exploit.
-
-| Next.js | Sharp | librsvg | Result |
-|---|---|---|---|
-| 16.3.5 | 0.35.4 | 2.62.91 | connection closed, marker written |
-| 16.3.6 | 0.35.4 | 2.62.91 | marker written, despite the serializer fix |
-| 16.3.8 | 0.35.4 | 2.62.91 | marker written |
-| 16.3.6 | 0.35.5 | 2.63.2 | PNG 200, no marker, server healthy |
-| 16.3.8 | 0.35.5 | 2.63.2 | PNG 200, no marker, server healthy |
-
-Node v24.20.0 x64 throughout, the official Linux archive checked against the
-published SHA-256, on Debian bookworm with glibc, in containers with no network
-and a read-only filesystem apart from one evidence directory. Rows four and five
-use the same built application as rows two and three with the Sharp package
-and its two native directories overlaid, so the application code and the Next.js
-bundle are byte-identical across the comparison. To be precise about what moved:
-Sharp went 0.35.4 to 0.35.5 and carried librsvg 2.62.91 to 2.63.2 with it. The
-librsvg ownership fix is the change that matters, but it is not the only line
-that changed, and I cannot claim a single-variable experiment.
-
-### Telling a crash apart from execution
-
-Mistaking a crash for execution is the easiest way to fool yourself here, so
-three observations had to line up before I counted a row. They are worth taking
-one at a time rather than running together.
-
-**The pipeline had to be working.** Every cell first rendered a harmless red
-square, and the centre pixel was checked for `[255,0,0,255]`. A configuration
-that could not render at all would otherwise look like a configuration that
-rendered and was not exploitable.
-
-**The marker had to appear.** `/tmp/next-og-rce-proof` did not exist before the
-request and contained `PROVEN` after it. The route has no code that writes
-files. Nothing in the application could have created it, so the command carried
-in the SVG ran.
-
-**The connection had to close with no response.** This is the weakest of the
-three and I want to be clear about what it is worth. It is consistent with the
-worker being terminated or replaced. It does not identify the mechanism, and I
-did not capture process-level evidence of one.
-
-So the marker carries the claim, not the dead socket. A crash gives you the
-closed connection and nothing else. That is the whole reason the payload writes
-a file rather than doing anything more interesting.
-
-### What has to be true, stated separately
-
-I am not claiming a stock Next.js install is exploitable by this route. The
-result needs all of:
-
-- **An application handler that forwards a complete SVG into
-  `ImageResponse`.** No stock endpoint does this. This is the assumption that
-  carries the most weight, and it is app code.
-- **An affected Sharp.** `^0.35.4` permits both the affected and the fixed
-  build, so your lockfile decides. A fresh install resolves to the fixed one.
-- **The Node runtime**, not Edge. Next section.
-- **A matching non-PIE Node x64 binary** and a favourable heap layout for the
-  specific payload to work unmodified.
-
-These do not fail the same way. Remove the application route and there is no
-reachability at all, because nothing delivers the document. Move to a fixed
-librsvg and the parser simply does not have the bug. Change the Node binary or
-the heap layout and the path is still reachable, but this particular payload's
-hardcoded addresses stop meaning anything, which leaves a crash risk rather
-than a demonstrated command.
-
-## 8. Edge is not this bug behind a sandbox
-
-This is the other claim I would rather show than assert, and I had it wrong in
-my head at the start.
-
-Next.js picks the renderer in `next/dist/server/og/image-response.js`, and the
-entire decision is one ternary:
-
-```js
-function importModule() {
-  return import(
-    process.env.NEXT_RUNTIME === 'edge'
-      ? 'next/dist/compiled/@vercel/og/index.edge.js'
-      : 'next/dist/compiled/@vercel/og/index.node.js'
-  );
-}
-```
-
-Two different bundles. Inside the Node one, at the point the SVG is finally
-rendered:
-
-```js
-if (sharp) {
-  pngBuffer = await sharp(new TextEncoder().encode(svg))
-    .resize(...).png().toBuffer();
-} else {
-  const resvgJS = new resvg.Resvg(svg, { ... });
-}
-```
-
-Three things fall out of those nine lines.
-
-The Satori output goes into `sharp()` with no security check in between. Not
-"no inspection" in general, because section 6 showed Satori reading the
-document to measure it. No validation of what the document is allowed to
-contain, and no loader allowlist of the kind the optimizer applies. The trust boundary in the diagram is not a
-simplification, it is that line.
-
-The branch is `if (sharp)`, not the runtime. A Node deployment without Sharp
-resolved takes the `else` and renders with `resvg` like Edge does. The optional
-dependency decides the attack surface.
-
-And Edge is **not this bug behind a sandbox**. `resvg` is a separate SVG
-implementation in Rust. It does not use librsvg's shared entity map, which is
-the structure CVE-2026-96889 is about, so there is nothing there for this
-payload to act on. It is not contained on Edge, it is irrelevant on Edge.
-
-Two separate properties get credited to Edge and they are worth keeping apart.
-The first is that it runs different code, which is why this particular CVE does
-not apply. The second is that WebAssembly is a sandbox with linear memory and no
-syscalls, so a memory bug in `resvg` starts from a worse position for an
-attacker than one in a native addon does. How much worse depends on what host
-interfaces that sandbox is given, which I did not test. On Node there is no second property to fall back on:
-Sharp is a native addon inside the server process, and execution there holds the
-filesystem, the environment variables and the network position of your
-application.
-
-The lesson is not "use Edge and you are safe". It is that two runtimes of the
-same feature can be two different attack surfaces, and a finding against one
-says nothing about the other until you check which library each actually
-loads.
-
-## 9. Duplicate, then the advisory
-
-- **2026-10-01.** Closed as a duplicate. The triage note named the same attack
-  surface, a nested SVG passed through to the image pipeline, and the same
-  impact, already tracked under an earlier private report.
-- **2026-10-14.** Vercel published
-  [GHSA-2464-fhr4-w9xw](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw),
-  critical, patched in 15.5.28 and 16.4.1.
+**2026-10-14.** Vercel published
+[GHSA-2464-fhr4-w9xw](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw),
+critical, patched in 15.5.28 and 16.4.1.
 
 Thirteen days between being told it was known and watching it go public.
 
-Those two facts fit together more comfortably than they first look. A duplicate
+Those two facts sit together more comfortably than they first look. A duplicate
 decision is about the root cause, not about your route to it. I had a different
 delivery path, on builds past the fix that was supposed to close this, and that
 is a real and separate fact about reachability. It is still the same underlying
 defect in the same library, so from the program's side there is one thing to
-track and one thing to fix. Finding another delivery path can show real
-exposure without establishing a new root cause, and those are two different
-contributions that a triage queue is not built to separate.
+track and one thing to fix. Finding another delivery path can show real exposure
+without establishing a new root cause.
 
-The remedy there is a Sharp version bump rather than a change to Next.js code,
-which is section 1 restated: the memory-safety defect was upstream, and what the
-framework shipped was a new dependency floor. Not a patch to its own logic, and
-nothing to do with the earlier Satori serializer bug.
+## What transfers
 
-Their title says Image Optimization API, meaning `/_next/image`. I never touched
-that endpoint. Both roads end at Sharp, so the bump covers both, but anyone who
-read that title and concluded they were safe because they do not use the
-optimizer read it too narrowly.
+A patch removes a mechanism. An exploit needs a capability. The serializer fix
+was correct and effective against injection. This never needed injection. It
+needed rendering, and rendering was never removed.
 
-## 10. The idea worth keeping
+Three questions to take to another framework:
 
-A patch removes a mechanism. An exploit needs a capability.
-
-The serializer fix was correct and effective against injection. This never
-needed injection. It needed rendering, and rendering was never removed.
-
-If you want to run this method on another framework, it is three questions:
-
-1. **What native code is on the request path?** Walk the optional and
-   transitive dependencies, not the ones you chose. Look for parsers, decoders,
-   renderers.
-2. **Which roads reach it, and what does each road assume about its input?**
-   The defended road is rarely the only one. Find the one whose input is
-   considered trusted because the framework generated it.
-3. **When an advisory ships with a public exploit, separate the vendor's bug
-   from the payload.** Then ask whether that payload can arrive another way.
-
-The third one is where the duplicates and the originals part company.
+1. **What native code is on the request path?** Walk the optional and transitive
+   dependencies, not the ones you chose. Look for parsers, decoders, renderers.
+2. **Which paths reach it, and what does each assume about its input?** The
+   defended one is rarely the only one. Find the one whose input is trusted
+   because the framework generated it.
+3. **When an advisory ships with a public exploit, separate the vendor's bug from
+   the payload.** Then ask whether that payload can arrive another way.
