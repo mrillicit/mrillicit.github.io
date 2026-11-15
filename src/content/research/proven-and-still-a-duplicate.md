@@ -41,6 +41,82 @@ document. No stock endpoint does this. The route in my test app does.
 | Runtime | Node v24.20.0 x64, official Linux archive, checked against the published SHA-256 |
 | Host | Debian bookworm, glibc, offline containers |
 
+## The whole path, end to end
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 752" width="100%" role="img" aria-labelledby="dfd-t dfd-d" style="max-width:560px;display:block;margin:1.5rem auto;font-family:ui-monospace,'JetBrains Mono',monospace">
+<title id="dfd-t">End to end data flow, from an unauthenticated request to code execution</title>
+<desc id="dfd-d">Six steps. One, an unauthenticated POST carries a complete SVG containing an XInclude and an entity declared twice. Two, a route base64 encodes those bytes into a data URI inside an img tag. Three, ImageResponse picks a renderer by runtime: Edge loads resvg, a different parser that does not have this bug, while Node loads the Satori bundle. Four, Satori builds the outer SVG and keeps the base64 URI exactly as it arrived, decoding it only to measure width and height, so the serializer hardening, which sits on the branch that rebuilds the URI, is never reached. The document then crosses the trust boundary. Five, sharp passes it to libvips, librsvg and libxml2 as native C inside the server process, where the outer parse and the include share one entity map. Six, the second declaration frees an object the outer parse still holds, a use-after-free tracked as CVE-2026-96889, and the command inside the SVG runs as the server process.</desc>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted-foreground,#8b93a7)"/></marker>
+<marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent,#ff6b01)"/></marker>
+</defs>
+<style>
+.b{fill:var(--muted,#1b1e26);stroke:var(--muted-foreground,#8b93a7);stroke-opacity:.35;stroke-width:1.5;rx:6}
+.bn{fill:none;stroke:var(--accent,#ff6b01);stroke-width:1.6;rx:6}
+.bd{fill:none;stroke:var(--muted-foreground,#8b93a7);stroke-opacity:.6;stroke-width:1.5;stroke-dasharray:5 4;rx:6}
+.t{fill:var(--foreground,#e8eaf0);font-size:15px;font-weight:700}
+.s{fill:var(--muted-foreground,#8b93a7);font-size:12.5px}
+.a{fill:var(--accent,#ff6b01);font-size:12.5px;font-weight:600}
+.n{fill:var(--accent,#ff6b01);font-size:12.5px;font-weight:700}
+.e{fill:var(--muted-foreground,#8b93a7);font-size:11.5px;font-style:italic}
+.ln{stroke:var(--muted-foreground,#8b93a7);stroke-width:1.5;fill:none}
+.lnA{stroke:var(--accent,#ff6b01);stroke-width:1.6;fill:none}
+.dim{opacity:.6}
+</style>
+<rect x="20" y="10" width="520" height="52" class="b"/>
+<text x="36" y="33" class="n">1</text>
+<text x="52" y="33" class="t">Unauthenticated POST</text>
+<text x="36" y="52" class="s">a complete SVG: XInclude plus an entity declared twice</text>
+<path d="M30,62 L30,100" class="ln" marker-end="url(#ar)"/>
+<text x="48" y="85" class="e">raw SVG bytes</text>
+<rect x="20" y="100" width="520" height="52" class="b"/>
+<text x="36" y="123" class="n">2</text>
+<text x="52" y="123" class="t">Route</text>
+<text x="36" y="142" class="s">base64 into &lt;img src="data:image/svg+xml;base64,…"&gt;</text>
+<path d="M30,152 L30,190" class="ln" marker-end="url(#ar)"/>
+<text x="48" y="175" class="e">a data: URI inside an &lt;img&gt;</text>
+<rect x="20" y="190" width="520" height="64" class="b"/>
+<text x="36" y="213" class="n">3</text>
+<text x="52" y="213" class="t">ImageResponse</text>
+<text x="36" y="231" class="s">server/og/image-response.js</text>
+<text x="36" y="248" class="s">NEXT_RUNTIME === 'edge' ? index.edge.js : index.node.js</text>
+<path d="M30,254 L30,322" class="ln" marker-end="url(#ar)"/>
+<path d="M30,287 L300,287" class="ln dim" marker-end="url(#ar)"/>
+<rect x="306" y="262" width="234" height="50" class="bd"/>
+<text x="320" y="284" class="s dim">edge: resvg, Rust and WASM</text>
+<text x="320" y="302" class="s dim">different parser, no such bug</text>
+<text x="48" y="307" class="e">node</text>
+<rect x="20" y="322" width="266" height="88" class="b"/>
+<text x="36" y="345" class="n">4</text>
+<text x="52" y="345" class="t">Satori</text>
+<text x="36" y="364" class="s">builds the outer SVG</text>
+<text x="36" y="383" class="a">keeps your URI verbatim</text>
+<text x="36" y="402" class="s">decodes only to measure</text>
+<path d="M286,366 L306,366" class="ln dim"/>
+<text x="312" y="352" class="s dim">the serializer fix sits on</text>
+<text x="312" y="370" class="s dim">the branch that rebuilds</text>
+<text x="312" y="388" class="s dim">the URI, never taken here</text>
+<path d="M30,410 L30,452" class="ln" marker-end="url(#ar)"/>
+<text x="48" y="434" class="e">outer SVG, your document copied in untouched</text>
+<path d="M10,464 L550,464" class="lnA" stroke-dasharray="7 5"/>
+<text x="20" y="485" class="a">TRUST BOUNDARY</text>
+<text x="146" y="485" class="s">untrusted document enters native code</text>
+<path d="M30,493 L30,520" class="lnA" marker-end="url(#arA)"/>
+<rect x="20" y="524" width="520" height="106" class="bn"/>
+<text x="36" y="547" class="n">5</text>
+<text x="52" y="547" class="t">if (sharp)</text>
+<text x="36" y="568" class="s">sharp &#8594; libvips &#8594; librsvg &#8594; libxml2</text>
+<text x="36" y="589" class="s">native C, inside your server process</text>
+<text x="36" y="612" class="s">one entity map, shared by the outer parse and the include</text>
+<path d="M30,630 L30,662" class="ln" marker-end="url(#ar)"/>
+<rect x="20" y="666" width="520" height="80" class="b"/>
+<text x="36" y="689" class="n">6</text>
+<text x="52" y="689" class="t">Use-after-free</text>
+<text x="36" y="708" class="s">the second declaration frees an object the outer parse still holds</text>
+<text x="36" y="724" class="s">CVE-2026-96889</text>
+<text x="36" y="741" class="a">the command inside the SVG runs as the server process</text>
+</svg>
+
 ## Starting at the sink
 
 The first question was not what I could send. It was what native code sits under
