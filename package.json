@@ -22,7 +22,7 @@
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.4",
     "@tailwindcss/vite": "^4.3.3",
-    "astro": "^7.3.8",
+    "astro": "^7.4.12",
     "dayjs": "^1.11.23",
     "lodash.kebabcase": "^4.1.1",
     "rehype-callouts": "^2.2.0",
@@ -54,7 +54,11 @@
       "fast-uri": ">=3.1.9",
       "minimatch": ">=11.0.1",
       "postcss-selector-parser": ">=6.1.5",
-      "fflate": ">=0.7.5"
+      "fflate": ">=0.7.5",
+      "@emnapi/runtime": "1.11.3",
+      "shiki": "4.6.0",
+      "@shikijs/types": "4.6.0",
+      "fast-xml-parser": ">=5.12.0"
     }
   }
 }
