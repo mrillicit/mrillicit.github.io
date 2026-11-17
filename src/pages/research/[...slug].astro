@@ -5,6 +5,7 @@ import Layout from "@/layouts/Layout.astro";
 import Header from "@/components/Header.astro";
 import Footer from "@/components/Footer.astro";
 import SeverityBadge from "@/components/SeverityBadge.astro";
+import Collaborators from "@/components/Collaborators.astro";
 import IconArrowLeft from "@/assets/icons/IconArrowLeft.svg";
 import { getResearchSlug } from "@/utils/getResearchPaths";
 import { getSortedResearch } from "@/utils/getSortedResearch";
@@ -29,6 +30,7 @@ const {
   target,
   pubDatetime,
   links,
+  collaborators,
 } = entry.data;
 
 const { Content } = await render(entry);
@@ -106,6 +108,8 @@ const linkRow = [
     <article class="app-prose mt-8">
       <Content />
     </article>
+
+    <Collaborators collaborators={collaborators} />
   </main>
   <Footer />
 </Layout>

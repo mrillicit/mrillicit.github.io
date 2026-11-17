@@ -6,6 +6,10 @@ severity: "critical"
 target: "NextJS"
 theme: "web"
 tags: ["collisions", "native", "upstream", "methodology"]
+collaborators:
+  - name: "loopspell"
+    url: "https://x.com/loopspell"
+    role: "Co-researcher"
 ---
 
 One unauthenticated POST carrying an SVG, and a command inside that SVG ran as

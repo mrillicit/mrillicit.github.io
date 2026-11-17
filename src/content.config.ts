@@ -40,6 +40,23 @@ const research = defineCollection({
           repo: z.string().optional(),
         })
         .optional(),
+      /**
+       * People who worked on this finding alongside the author.
+       * `name` is shown as given, so a pseudonym is fine. Leave `url` out to
+       * credit someone without linking them anywhere.
+       */
+      collaborators: z
+        .array(
+          z.object({
+            name: z.string(),
+            url: z.string().optional(),
+            /** One short phrase on what they did. Defaults to "Collaborator". */
+            role: z.string().optional(),
+            /** Overrides the icon guessed from the URL. */
+            icon: z.enum(["x", "github", "linkedin", "mail"]).optional(),
+          })
+        )
+        .default([]),
       tags: z.array(z.string()).default([]),
       ogImage: image().or(z.string()).optional(),
       canonicalURL: z.string().optional(),
