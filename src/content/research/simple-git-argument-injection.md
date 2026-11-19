@@ -108,7 +108,24 @@ Git runs the rest as a shell command on every submodule update, which happens
 during any clone with `--recurse-submodules`.
 
 These two are the more serious half of the report, because they need only the
-one string.
+one string. And the string is the whole payload, because Git runs these values
+through a shell:
+
+```
+$ git -c "filter.y.process=sh -c 'id > /tmp/proof'" clone repo dest
+EXECUTED
+
+$ git -c "diff.x.textconv=id > /tmp/proof #" log -p -1
+EXECUTED
+```
+
+Observed on git 2.54.0. Nothing had to be written to disk first. Worth saying
+plainly, because the obvious guess about a bug like this is wrong:
+`simple-git` never uses a shell. It spawns `git` with an argument array, which
+is the correct way to do it, so there is no quoting flaw to find. The shell is
+Git's, and these settings are documented to take commands. The attacker is not
+escaping anything. They are using a feature through a guard that was supposed to
+stop them naming it.
 
 ## What I learned
 

@@ -21,6 +21,12 @@ import config from "./astro-paper.config";
 
 export default defineConfig({
   site: config.site.url,
+  redirects: {
+    // The post was briefly live under a slug that overstated the finding as RCE.
+    // It is argument injection; whether it is remote is a property of the app.
+    "/research/simple-git-include-path-rce":
+      "/research/simple-git-argument-injection",
+  },
   integrations: [
     mdx(),
     sitemap({
